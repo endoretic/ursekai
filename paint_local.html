@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project SEKAI - MySekai Xray</title>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script>
+        const SCENES = {
+            scene1: {
+                physicalWidth: 33.333,
+                offsetX: 0,
+                offsetY: -40,
+                imagePath: "img/grassland.png",
+                xDirection: 'x-',
+                yDirection: 'y-',
+                reverseXY: true,
+            },
+            scene2: {
+                physicalWidth: 24.806,
+                offsetX: -62.015,
+                offsetY: 20.672,
+                imagePath: "img/flowergarden.png",
+                xDirection: 'x-',
+                yDirection: 'y-',
+                reverseXY: true,
+            },
+            scene3: {
+                physicalWidth: 20.513,
+                offsetX: 0,
+                offsetY: 80,
+                imagePath: "img/beach.png",
+                xDirection: 'x+',
+                yDirection: 'y-',
+                reverseXY: false,
+            },
+            scene4: {
+                physicalWidth: 21.333,
+                offsetX: 0,
+                offsetY: -106.667,
+                imagePath: "img/memorialplace.png",
+                xDirection: 'x+',
+                yDirection: 'y-',
+                reverseXY: false,
+            }
+        };
+
+
+        const FIXTURE_COLORS = {
+            112:  '#f9f9f9',
+
+            1001: '#da6d42', // wood
+            1002: '#da6d42',
+            1003: '#da6d42',
+            1004: '#da6d42',
+            
+            2001: '#878685', // iron
+            2002: '#d5750a', // copper
+            2003: '#d5d5d5', // stone
+            2004: '#a7c7cb',
+            2005: '#9933cc',
+
+            3001: '#c95a49',
+
+            4001: '#f8729a', // flower
+            4002: '#f8729a', 
+            4003: '#f8729a', 
+            4004: '#f8729a',
+            4005: '#f8729a',
+            4006: '#f8729a',
+            4007: '#f8729a',
+            4008: '#f8729a',
+            4009: '#f8729a', // cotton
+            4010: '#f8729a',
+            4011: '#f8729a',
+            4012: '#f8729a',
+            4013: '#f8729a',
+            4014: '#f8729a',
+            4015: '#f8729a',
+            4016: '#f8729a',
+            4017: '#f8729a',
+            4018: '#f8729a',
+            4019: '#f8729a',
+            4020: '#f8729a',
+
+            5001: '#f6f5f2',
+            5002: '#f6f5f2',
+            5003: '#f6f5f2',
+            5004: '#f6f5f2',
+            5101: '#f6f5f2',
+            5102: '#f6f5f2',
+            5103: '#f6f5f2',
+            5104: '#f6f5f2',
+
+            6001: '#6f4e37',
+
+            7001: '#a5d9ff',
+        };
+
+        const ITEM_TEXTURES = {
+            mysekai_material: {
+                "1": "./icon/Texture2D/item_wood_1.png",
+                "2": "./icon/Texture2D/item_wood_2.png",
+                "3": "./icon/Texture2D/item_wood_3.png",
+                "4": "./icon/Texture2D/item_wood_4.png",
+                "5": "./icon/Texture2D/item_wood_5.png",
+                "6": "./icon/Texture2D/item_mineral_1.png",
+                "7": "./icon/Texture2D/item_mineral_2.png",
+                "8": "./icon/Texture2D/item_mineral_3.png",
+                "9": "./icon/Texture2D/item_mineral_4.png",
+                "10": "./icon/Texture2D/item_mineral_5.png",
+                "11": "./icon/Texture2D/item_mineral_6.png",
+                "12": "./icon/Texture2D/item_mineral_7.png",
+                "13": "./icon/Texture2D/item_junk_1.png",
+                "14": "./icon/Texture2D/item_junk_2.png",
+                "15": "./icon/Texture2D/item_junk_3.png",
+                "16": "./icon/Texture2D/item_junk_4.png",
+                "17": "./icon/Texture2D/item_junk_5.png",
+                "18": "./icon/Texture2D/item_junk_6.png",
+                "19": "./icon/Texture2D/item_junk_7.png",
+                "20": "./icon/Texture2D/item_plant_1.png",
+                "21": "./icon/Texture2D/item_plant_2.png",
+                "22": "./icon/Texture2D/item_plant_3.png",
+                "23": "./icon/Texture2D/item_plant_4.png",
+                "24": "./icon/Texture2D/item_tone_8.png",
+                "32": "./icon/Texture2D/item_junk_8.png",
+                "33": "./icon/Texture2D/item_mineral_8.png",
+                "34": "./icon/Texture2D/item_junk_9.png",
+                "61": "./icon/Texture2D/item_junk_10.png",
+                "62": "./icon/Texture2D/item_junk_11.png",
+                "63": "./icon/Texture2D/item_junk_12.png",
+                "64": "./icon/Texture2D/item_mineral_9.png",
+                "65": "./icon/Texture2D/item_mineral_10.png",
+            },
+            mysekai_item: {
+                "7": "./icon/Texture2D/item_blueprint_fragment.png",
+            },
+            mysekai_fixture: {
+                "118": "./icon/Texture2D/mdl_non1001_before_sapling1_118.png",
+                "119": "./icon/Texture2D/mdl_non1001_before_sapling1_119.png",
+                "120": "./icon/Texture2D/mdl_non1001_before_sapling1_120.png",
+                "121": "./icon/Texture2D/mdl_non1001_before_sapling1_121.png",
+                "126": "./icon/Texture2D/mdl_non1001_before_sprout1_126.png",
+                "127": "./icon/Texture2D/mdl_non1001_before_sprout1_127.png",
+                "128": "./icon/Texture2D/mdl_non1001_before_sprout1_128.png",
+                "129": "./icon/Texture2D/mdl_non1001_before_sprout1_129.png",
+                "130": "./icon/Texture2D/mdl_non1001_before_sprout1_130.png",
+                "474": "./icon/Texture2D/mdl_non1001_before_sprout1_474.png",
+                "475": "./icon/Texture2D/mdl_non1001_before_sprout1_475.png",
+                "476": "./icon/Texture2D/mdl_non1001_before_sprout1_476.png",
+                "477": "./icon/Texture2D/mdl_non1001_before_sprout1_477.png",
+                "478": "./icon/Texture2D/mdl_non1001_before_sprout1_478.png",
+                "479": "./icon/Texture2D/mdl_non1001_before_sprout1_479.png",
+                "480": "./icon/Texture2D/mdl_non1001_before_sprout1_480.png",
+                "481": "./icon/Texture2D/mdl_non1001_before_sprout1_481.png",
+                "482": "./icon/Texture2D/mdl_non1001_before_sprout1_482.png",
+                "483": "./icon/Texture2D/mdl_non1001_before_sprout1_483.png"
+            },
+            mysekai_music_record: {
+                352: 'music352.png'
+            }
+        };
+        
+        const RARE_ITEM = {
+            mysekai_material: [5,12,20, 24, 32, 33, 61, 62, 63, 64, 65], 
+            mysekai_item: [7], 
+            mysekai_music_record: [],
+            mysekai_fixture: [118,119,120,121]
+        };
+
+        const SUPER_RARE_ITEM = {
+            mysekai_material: [5,12,20,24], 
+            mysekai_item: [], 
+            mysekai_fixture: [],
+            mysekai_music_record: []
+        };
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            position: relative;
+            max-width: 1920px;
+            width: 100%;
+            text-align: center;
+        }
+        .image-container {
+            position: relative;
+            display: inline-block;
+        }
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        .grid-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        .controls label {
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        .controls input {
+            padding: 5px;
+            font-size: 16px;
+            width: 100px;
+        }
+        .controls textarea {
+            width: 400px;
+            height: 100px;
+            margin-bottom: 10px;
+        }
+        .direction-buttons {
+            margin-top: 10px;
+        }
+        .direction-buttons button {
+            margin: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .scene-buttons {
+            margin: 10px 0;
+        }
+        .scene-buttons button {
+            margin: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .scene-buttons button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .scene-buttons button.super-rare {
+            background-color: #ff0000;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+        .log-container {
+            width: 600px;
+            height: 150px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            font-family: monospace;
+            font-size: 12px;
+            text-align: left;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+        }
+        .log-entry .timestamp {
+            color: #666;
+            margin-right: 10px;
+        }
+        .log-entry .message {
+            color: #000;
+        }
+        .item-list {
+            position: absolute;
+            background: rgba(138, 138, 138, 0.7);
+            border-radius: 3px;
+            font-size: 12px;
+            text-align: left;
+        }
+        .item-list img {
+            width: 20px;
+            height: 20px;
+            vertical-align: middle;
+            position: relative;
+        }
+        .item-list .quantity {
+            font-size: 8px;
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            color: black;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            padding: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="image-container">
+            <img src="image.png" alt="示例图片" id="image">
+            <canvas class="grid-canvas" id="gridCanvas"></canvas>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="scene-buttons">
+            <button onclick="selectScene('scene1')" data-scene="scene1">さいしょの原っぱ</button>
+            <button onclick="selectScene('scene2')" data-scene="scene2">彩りの花畑</button>
+            <button onclick="selectScene('scene3')" data-scene="scene3">願いの砂浜</button>
+            <button onclick="selectScene('scene4')" data-scene="scene4">忘れ去られた場所</button>
+        </div>
+        <br>
+        <button onclick="parseAndMarkPoints()">Mark Points</button>
+        <button onclick="captureScreenshot()">Screenshot</button>
+        <br><br>
+        <div class="log-container" id="logContainer"></div>
+        <br>
+        <details>
+            <summary>Advance Settings</summary>
+            <label for="physicalWidth">Grid Width(px):</label>
+            <input type="number" id="physicalWidth" value="10" min="1" step="1">
+            <label for="offsetX">X Offset(px):</label>
+            <input type="number" id="offsetX" value="0" step="1">
+            <label for="offsetY">Y Offset(px):</label>
+            <input type="number" id="offsetY" value="0" step="1">
+            <button onclick="drawGrid()">Draw Grid</button>
+            <button onclick="clearGrid()">Clear Canvas</button>
+            <br>
+            <div class="direction-buttons">
+                <button onclick="setDirection('x+', 'y+')">X+ Y+</button>
+                <button onclick="setDirection('x+', 'y-')">X+ Y-</button>
+                <button onclick="setDirection('x-', 'y+')">X- Y+</button>
+                <button onclick="setDirection('x-', 'y-')">X- Y-</button>
+            </div>
+        </details>
+    </div>
+
+    <script>
+        // import html2canvas from 'html2canvas';
+        async function captureScreenshot() {
+            const container = document.querySelector('.container');
+
+            const rect = container.getBoundingClientRect();
+
+            function screenshot(canvas) {
+                const imgData = canvas.toDataURL('image/png');
+
+                const link = document.createElement('a');
+                link.href = imgData;
+                link.download = 'screenshot.png';
+
+                link.click();
+            }
+
+            cav = await html2canvas(document.body, {
+                x: rect.left + window.scrollX,
+                y: rect.top + window.scrollY,
+                width: rect.width,
+                height: rect.height,
+                scrollX: 0,
+                scrollY: 0
+            });
+            screenshot(cav);
+        }
+
+        let xDirection = 'x+';
+        let yDirection = 'y-';
+        let reverseXY = false;
+        let currentScene = 'scene1';
+        let harvestData = {};
+        let lastUpdateTime = 0;
+
+        // Log messages to UI
+        function logger(message) {
+            const logContainer = document.getElementById('logContainer');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+
+            const timestamp = document.createElement('span');
+            timestamp.className = 'timestamp';
+            const now = new Date();
+            timestamp.textContent = `[${now.toLocaleString()}]`;
+
+            const messageSpan = document.createElement('span');
+            messageSpan.className = 'message';
+            messageSpan.textContent = message;
+
+            logEntry.appendChild(timestamp);
+            logEntry.appendChild(messageSpan);
+            logContainer.appendChild(logEntry);
+
+            // Auto-scroll to bottom
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Scene ID mapping
+        const SITE_ID_MAP = {
+            1: "マイホーム",
+            2: "1F",
+            3: "2F",
+            4: "3F",
+            5: "さいしょの原っぱ",
+            6: "願いの砂浜",
+            7: "彩りの花畑",
+            8: "忘れ去られた場所",
+        };
+
+        // Parse harvest map data from game API response
+        function parseMapData(gameData) {
+            if (!gameData) {
+                logger('Error: gameData is null');
+                return {};
+            }
+
+            if (!gameData.updatedResources) {
+                logger('Warning: updatedResources not found');
+                return {};
+            }
+
+            if (!gameData.updatedResources.userMysekaiHarvestMaps) {
+                logger('Warning: userMysekaiHarvestMaps not found');
+                return {};
+            }
+
+            const harvestMaps = gameData.updatedResources.userMysekaiHarvestMaps;
+            logger(`Found ${harvestMaps.length} scenes`);
+
+            const processedMap = {};
+
+            harvestMaps.forEach((mp) => {
+                const siteId = mp.mysekaiSiteId;
+                const siteName = SITE_ID_MAP[siteId] || `Unknown Site ${siteId}`;
+
+                const mpDetail = [];
+                const fixtures = mp.userMysekaiSiteHarvestFixtures || [];
+                const drops = mp.userMysekaiSiteHarvestResourceDrops || [];
+
+                // Collect all spawned fixtures
+                let spawnedCount = 0;
+                fixtures.forEach(fixture => {
+                    if (fixture.userMysekaiSiteHarvestFixtureStatus === "spawned") {
+                        mpDetail.push({
+                            location: [fixture.positionX, fixture.positionZ],
+                            fixtureId: fixture.mysekaiSiteHarvestFixtureId,
+                            reward: {}
+                        });
+                        spawnedCount++;
+                    }
+                });
+
+                // Add drop items to fixtures
+                drops.forEach(drop => {
+                    const pos = [drop.positionX, drop.positionZ];
+                    const found = mpDetail.find(item =>
+                        item.location[0] === pos[0] && item.location[1] === pos[1]
+                    );
+
+                    if (found) {
+                        if (!found.reward[drop.resourceType]) {
+                            found.reward[drop.resourceType] = {};
+                        }
+                        found.reward[drop.resourceType][drop.resourceId] =
+                            (found.reward[drop.resourceType][drop.resourceId] || 0) + drop.quantity;
+                    }
+                });
+
+                processedMap[siteName] = mpDetail;
+                logger(`Scene "${siteName}" loaded: ${spawnedCount} fixtures`);
+            });
+
+            return processedMap;
+        }
+
+        // Load data from local mysekai_data.json file
+        async function loadLocalData() {
+            logger('Loading mysekai_data.json...');
+            try {
+                const response = await fetch('mysekai_data.json');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+                }
+
+                const gameData = await response.json();
+
+                harvestData = parseMapData(gameData);
+                lastUpdateTime = Date.now() / 1000;
+
+                const sceneNames = Object.keys(harvestData);
+                if (sceneNames.length === 0) {
+                    logger('Warning: No scene data loaded');
+                } else {
+                    logger('Data loaded: ' + sceneNames.join(', '));
+                }
+
+                // Update button states
+                updateSceneButtonStatus();
+
+                // Auto-mark points on current scene
+                parseAndMarkPoints();
+            } catch (error) {
+                logger('Error loading data: ' + error.message);
+            }
+        }
+
+        // Server polling (deprecated - using local mode now)
+        async function pollServer() {
+            // Local mode: single load, no polling needed
+        }
+
+        // Update scene buttons with super rare item indicator
+        function updateSceneButtonStatus() {
+            const sceneNameMap = {
+                'scene1': 'さいしょの原っぱ',
+                'scene2': '彩りの花畑',
+                'scene3': '願いの砂浜',
+                'scene4': '忘れ去られた場所'
+            };
+
+            for (const sceneKey in sceneNameMap) {
+                const sceneName = sceneNameMap[sceneKey];
+                const points = harvestData[sceneName];
+                const button = document.querySelector(`button[data-scene="${sceneKey}"]`);
+
+                if (!button) continue;
+
+                // Remove previous super-rare styling
+                button.classList.remove('super-rare');
+
+                if (points && Array.isArray(points)) {
+                    // Check if scene has super rare items
+                    const hasSuperRare = points.some(point => {
+                        return doContainsRareItem(point.reward, true);
+                    });
+
+                    if (hasSuperRare) {
+                        button.classList.add('super-rare');
+                        logger(`Scene ${sceneName} has super rare items!`);
+                    }
+                }
+            }
+        }
+
+        function selectScene(sceneKey) {
+            currentScene = sceneKey;
+            const selectedScene = SCENES[sceneKey];
+
+            if (selectedScene) {
+                // Update button state
+                document.querySelectorAll('.scene-buttons button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector(`button[data-scene="${sceneKey}"]`).classList.add('active');
+
+                physicalWidthInput.value = selectedScene.physicalWidth;
+                offsetXInput.value = selectedScene.offsetX;
+                offsetYInput.value = selectedScene.offsetY;
+                image.src = selectedScene.imagePath;
+                xDirection = selectedScene.xDirection;
+                yDirection = selectedScene.yDirection;
+                reverseXY = selectedScene.reverseXY;
+
+                logger(`Scene changed: ${sceneKey}`);
+
+                // Redraw canvas and clear items
+                initCanvas();
+                parseAndMarkPoints();
+            } else {
+                logger(`Scene not found: ${sceneKey}`);
+            }
+        }
+
+        const image = document.getElementById('image');
+        const canvas = document.getElementById('gridCanvas');
+        const physicalWidthInput = document.getElementById('physicalWidth');
+        const offsetXInput = document.getElementById('offsetX');
+        const offsetYInput = document.getElementById('offsetY');
+        let ctx = canvas.getContext('2d');
+
+        function initCanvas() {
+            canvas.width = image.clientWidth;
+            canvas.height = image.clientHeight;
+        }
+
+        window.addEventListener('resize', () => {
+            initCanvas();
+        });
+
+        function drawGrid() {
+            const physicalGridWidth = parseFloat(physicalWidthInput.value);
+            const offsetX = parseFloat(offsetXInput.value);
+            const offsetY = parseFloat(offsetYInput.value);
+            const displayWidth = image.clientWidth;
+            const displayHeight = image.clientHeight;
+            const naturalWidth = image.naturalWidth;
+            const naturalHeight = image.naturalHeight;
+
+            const scaleX = displayWidth / naturalWidth;
+            const scaleY = displayHeight / naturalHeight;
+
+            const displayGridWidth = physicalGridWidth * scaleX;
+
+            const originX = displayWidth / 2 + offsetX;
+            const originY = displayHeight / 2 + offsetY;
+
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+            ctx.lineWidth = 1;
+
+            for (let y = originY; y >= 0; y -= displayGridWidth) {
+                drawHorizontalLine(y);
+            }
+            for (let y = originY + displayGridWidth; y <= displayHeight; y += displayGridWidth) {
+                drawHorizontalLine(y);
+            }
+
+            for (let x = originX; x >= 0; x -= displayGridWidth) {
+                drawVerticalLine(x);
+            }
+            for (let x = originX + displayGridWidth; x <= displayWidth; x += displayGridWidth) {
+                drawVerticalLine(x);
+            }
+
+            drawCoordinateAxes(originX, originY);
+        }
+
+        function drawHorizontalLine(y) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+
+        function drawVerticalLine(x) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+
+        function drawCoordinateAxes(originX, originY) {
+            const crossSize = 3;
+
+            ctx.strokeStyle = 'black';
+            ctx.beginPath();
+            ctx.moveTo(originX - crossSize, originY - crossSize);
+            ctx.lineTo(originX + crossSize, originY + crossSize);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(originX + crossSize, originY - crossSize);
+            ctx.lineTo(originX - crossSize, originY + crossSize);
+            ctx.stroke();
+        }
+
+        function parseAndMarkPoints() {
+            try {
+                // Scene name mapping
+                const sceneNameMap = {
+                    'scene1': 'さいしょの原っぱ',
+                    'scene2': '彩りの花畑',
+                    'scene3': '願いの砂浜',
+                    'scene4': '忘れ去られた場所'
+                };
+
+                const sceneName = sceneNameMap[currentScene];
+                const points = harvestData[sceneName];
+
+                // Clear canvas and items
+                initCanvas();
+                clearItemLists();
+
+                if (!points) {
+                    logger(`Scene ${sceneName} has no data`);
+                    return;
+                }
+
+                if (!Array.isArray(points)) {
+                    logger("Error: Data is not an array");
+                    return;
+                }
+
+                if (!reverseXY) {
+                    points.forEach(point => markPoint(point));
+                } else {
+                    points.forEach(point => markPoint({location: [point.location[1], point.location[0]], fixtureId: point.fixtureId, reward: point.reward}));
+                }
+
+                // Adjust item list positions to avoid overlap
+                adjustItemListPositions(5, 5);
+                logger(`Marked ${points.length} fixtures`);
+            } catch (error) {
+                logger("Error marking points: " + error.message);
+            }
+        }
+
+        function doContainsRareItem(reward, isSuperRare = false) {
+            let compareList = isSuperRare ? SUPER_RARE_ITEM : RARE_ITEM;
+            for (const category in reward) {
+                if (reward.hasOwnProperty(category) && compareList.hasOwnProperty(category)) {
+                    for (const itemId of Object.keys(reward[category])) {
+                        if (compareList[category].includes(parseInt(itemId))) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function markPoint(point) {
+            const [x, y] = point.location;
+            const offsetX = parseFloat(offsetXInput.value);
+            const offsetY = parseFloat(offsetYInput.value);
+            const originX = canvas.width / 2 + offsetX;
+            const originY = canvas.height / 2 + offsetY;
+            const displayGridWidth = parseFloat(physicalWidthInput.value) * (image.clientWidth / image.naturalWidth);
+
+            const displayX = xDirection === 'x+' ? originX + x * displayGridWidth : originX - x * displayGridWidth;
+            const displayY = yDirection === 'y+' ? originY + y * displayGridWidth : originY - y * displayGridWidth;
+
+            const color = FIXTURE_COLORS[point.fixtureId];
+
+            let ifContainRareItem = false;
+            if (color) {
+                // Draw point
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(displayX, displayY, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                const containsRareItem = doContainsRareItem(point.reward);
+                if (containsRareItem) {
+                    // Draw red border
+                    ctx.strokeStyle = 'red';
+                    ctx.beginPath();
+                    ctx.arc(displayX, displayY, 5, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ifContainRareItem = true;
+                } else {
+                    // Draw black border
+                    ctx.strokeStyle = 'black';
+                    ctx.beginPath();
+                    ctx.arc(displayX, displayY, 5, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // Display reward items
+                displayReward(point.reward, displayX + displayGridWidth * 1.5, displayY + displayGridWidth / 1.2, ifContainRareItem);
+
+            } else {
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.fillText('?', displayX - 3, displayY + 4);
+            }
+        }
+
+
+        function displayReward(reward, x, y, ifContainRareItem) {
+            const itemList = document.createElement('div');
+            itemList.className = 'item-list';
+
+            const container = document.querySelector('.container');
+            const containerWidth = container.offsetWidth;
+            const screenWidth = window.innerWidth;
+
+            let xOffset = 0;
+            let yOffset = 0;
+
+            if (containerWidth >= 1920) {
+                const emptySpaceWidth = (screenWidth - 1920 - 80) / 2;
+                xOffset = emptySpaceWidth;
+                yOffset = -10;
+            }
+
+            if (reverseXY) {
+                itemList.style.left = `${x + xOffset}px`;
+                itemList.style.top = `${y - 10 + yOffset}px`;
+            } else {
+                itemList.style.left = `${x + xOffset}px`;
+                itemList.style.top = `${y + yOffset}px`;
+            }
+
+            for (const category in reward) {
+                if (!reward.hasOwnProperty(category)) continue;
+                for (const itemId in reward[category]) {
+                    if (!reward[category].hasOwnProperty(itemId)) continue;
+
+                    const quantity = reward[category][itemId];
+                    const texture = ITEM_TEXTURES[category]?.[itemId] || 'missing.png';
+
+                    const itemEntry = document.createElement('div');
+                    const itemImage = document.createElement('img');
+                    
+                    if (category == "mysekai_music_record") {
+                        itemImage.src = './icon/Texture2D/item_surplus_music_record.png';
+                    } else {
+                        itemImage.src = texture;
+                    }
+
+                    const quantityBadge = document.createElement('span');
+                    quantityBadge.className = 'quantity';
+                    quantityBadge.textContent = quantity;
+
+                    itemEntry.style.position = 'relative';
+                    itemEntry.appendChild(itemImage);
+                    itemEntry.appendChild(quantityBadge);
+                    if (reverseXY) {
+                        itemEntry.style.display = "inline-block"; // Horizontal layout
+                    }
+
+                    itemList.appendChild(itemEntry);  
+                }
+            }
+
+            if (ifContainRareItem || reward.hasOwnProperty("mysekai_music_record")) {
+                if (doContainsRareItem(reward, true)) {
+                    itemList.style.background = 'rgba(255, 0, 0, 0.5)';
+                } else {
+                    itemList.style.background = 'rgba(0, 0, 180, 0.5)';
+                }
+            }
+
+            document.body.appendChild(itemList);
+        }
+
+        function adjustItemListPositions(maxLapWidth, maxLapHeight) {
+            const itemLists = Array.from(document.querySelectorAll('.item-list'));
+
+            for (let i = 0; i < itemLists.length; i++) {
+                const rect1 = itemLists[i].getBoundingClientRect();
+
+                for (let j = i; j < itemLists.length; j++) {
+                    if (i === j) continue;
+
+                    const rect2 = itemLists[j].getBoundingClientRect();
+
+                    // Check for overlaps exceeding threshold
+                    const overlapWidth = Math.min(rect1.right, rect2.right) - Math.max(rect1.left, rect2.left);
+                    const overlapHeight = Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top, rect2.top);
+
+                    if (overlapWidth > 0 && overlapHeight > 0 && (overlapWidth > maxLapWidth || overlapHeight > maxLapHeight)) {
+                        if (reverseXY) {
+                            const currentTop = parseFloat(itemLists[j].style.top || 0);
+                            itemLists[j].style.top = `${currentTop - overlapHeight / 1.25}px`;
+                        } else {
+                            const currentLeft = parseFloat(itemLists[j].style.left || 0);
+                            itemLists[j].style.left = `${currentLeft - overlapWidth / 1.25}px`;
+                        }
+                    }
+                }
+            }
+        }
+
+        function setDirection(newXDirection, newYDirection) {
+            xDirection = newXDirection;
+            yDirection = newYDirection;
+            parseAndMarkPoints();
+        }
+       
+        function clearItemLists() {
+            // Remove all item lists from page
+            document.querySelectorAll('.item-list').forEach(item => item.remove());
+        }
+
+        function clearGrid() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Also clear item lists
+            clearItemLists();
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            logger('Page loaded. Loading local data...');
+            selectScene('scene1');
+            loadLocalData();
+        });
+    </script>
+</body>
+</html>

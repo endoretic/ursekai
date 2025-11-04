@@ -1,0 +1,6 @@
+*.pyc
+mysekai_data.json
+CLAUDE.md
+.vscode/
+.claude/
+__pycache__/
