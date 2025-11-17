@@ -1173,14 +1173,21 @@
                 image.src = selectedScene.imagePath;
 
                 // Wait for image loading before initializing canvas and drawing
+                // Use requestAnimationFrame to ensure DOM layout is stable
+                // This prevents race conditions when sidebar is closed during scene change
+                const initializeCanvasAfterLoad = () => {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            initCanvas();
+                            parseAndMarkPoints();
+                        });
+                    });
+                };
+
                 if (image.complete) {
-                    initCanvas();
-                    parseAndMarkPoints();
+                    initializeCanvasAfterLoad();
                 } else {
-                    image.onload = () => {
-                        initCanvas();
-                        parseAndMarkPoints();
-                    };
+                    image.onload = initializeCanvasAfterLoad;
                 }
             } else {
                 logger(`Scene not found: ${sceneKey}`);
