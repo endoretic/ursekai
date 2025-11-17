@@ -3,4 +3,5 @@ mysekai_data.json
 CLAUDE.md
 .vscode/
 .claude/
+testdata/
 __pycache__/

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -157,7 +157,7 @@
                 "483": "./icon/Texture2D/mdl_non1001_before_sprout1_483.png"
             },
             mysekai_music_record: {
-                352: 'music352.png'
+                "352": "./icon/Texture2D/item_surplus_music_record.png"
             }
         };
         
@@ -169,36 +169,66 @@
         };
 
         const SUPER_RARE_ITEM = {
-            mysekai_material: [5,12,20,24], 
-            mysekai_item: [], 
+            mysekai_material: [5,12,20,24],
+            mysekai_item: [],
             mysekai_fixture: [],
             mysekai_music_record: []
         };
     </script>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6c5ce7;
+            --secondary: #a29bfe;
+            --accent: #ff7675;
+            --bg: #ffffff;
+            --text: #2d3436;
+            --border: #e0e0e0;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin: 0;
             padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            color: var(--text);
         }
+
         .container {
             position: relative;
             max-width: 1920px;
             width: 100%;
             text-align: center;
         }
+
         .image-container {
             position: relative;
             display: inline-block;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease;
         }
+
+        .image-container:hover {
+            transform: translateY(-5px);
+        }
+
         .image-container img {
             max-width: 100%;
             height: auto;
             display: block;
+            border-radius: 12px;
         }
+
         .grid-canvas {
             position: absolute;
             top: 0;
@@ -207,108 +237,678 @@
             height: 100%;
             pointer-events: none;
         }
+
         .controls {
             margin-top: 20px;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            max-width: 800px;
         }
+
         .controls label {
-            font-size: 16px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
             margin-right: 10px;
+            display: block;
+            margin-bottom: 8px;
         }
+
         .controls input {
-            padding: 5px;
-            font-size: 16px;
+            padding: 8px 12px;
+            font-size: 14px;
             width: 100px;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            transition: border-color 0.3s;
         }
+
+        .controls input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
         .controls textarea {
-            width: 400px;
+            width: 100%;
             height: 100px;
             margin-bottom: 10px;
+            padding: 8px;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            font-family: monospace;
+            resize: vertical;
         }
+
         .direction-buttons {
             margin-top: 10px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
         }
-        .direction-buttons button {
-            margin: 5px;
-            padding: 10px 20px;
+
+        .direction-buttons button,
+        .controls button {
+            padding: 10px 16px;
             cursor: pointer;
-        }
-        .scene-buttons {
-            margin: 10px 0;
-        }
-        .scene-buttons button {
-            margin: 5px;
-            padding: 10px 20px;
-            cursor: pointer;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            background: white;
+            color: var(--text);
+            font-weight: 500;
+            transition: all 0.3s ease;
             font-size: 14px;
         }
-        .scene-buttons button.active {
-            background-color: #4CAF50;
+
+        .direction-buttons button:hover,
+        .controls button:hover {
+            border-color: var(--primary);
+            background: var(--primary);
             color: white;
+            transform: translateY(-2px);
         }
-        .scene-buttons button.super-rare {
-            background-color: #ff0000;
+
+        .scene-buttons {
+            margin: 15px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .scene-buttons button {
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: white;
+            color: var(--text);
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .scene-buttons button:hover {
+            border-color: var(--primary);
+            transform: translateX(4px);
+        }
+
+        .scene-buttons button.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: white;
+            border-color: var(--primary);
+            box-shadow: 0 8px 20px rgba(108, 92, 231, 0.3);
+        }
+
+        .scene-buttons button.super-rare {
+            background: linear-gradient(135deg, #e84393 0%, #fd79a8 100%);
+            color: white;
+            border-color: #e84393;
             animation: pulse 1.5s infinite;
         }
+
         @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.7;
-            }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
+
         .log-container {
-            width: 600px;
+            width: 100%;
+            max-width: 700px;
             height: 150px;
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin: 10px 0;
+            border: 2px solid var(--border);
+            padding: 12px;
+            margin: 15px 0;
             overflow-y: auto;
             background-color: #f9f9f9;
-            font-family: monospace;
+            font-family: 'Monaco', 'Courier New', monospace;
             font-size: 12px;
             text-align: left;
+            border-radius: 8px;
         }
+
         .log-entry {
             margin-bottom: 5px;
+            line-height: 1.4;
         }
+
         .log-entry .timestamp {
-            color: #666;
+            color: var(--primary);
             margin-right: 10px;
+            font-weight: 500;
         }
+
         .log-entry .message {
-            color: #000;
+            color: var(--text);
         }
+
         .item-list {
             position: absolute;
-            background: rgba(138, 138, 138, 0.7);
-            border-radius: 3px;
+            background: rgba(108, 92, 231, 0.85);
+            border-radius: 8px;
             font-size: 12px;
             text-align: left;
+            padding: 4px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
+
         .item-list img {
             width: 20px;
             height: 20px;
             vertical-align: middle;
             position: relative;
+            margin: 2px;
         }
+
         .item-list .quantity {
             font-size: 8px;
             position: absolute;
             bottom: 0;
             right: 0;
-            color: black;
-            background: rgba(255, 255, 255, 0.5);
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
             border-radius: 50%;
-            padding: 2px;
+            padding: 2px 4px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        details {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 2px solid var(--border);
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--primary);
+            padding: 8px;
+            user-select: none;
+        }
+
+        summary:hover {
+            background: #f0f0f0;
+            border-radius: 6px;
+        }
+
+        .filter-button {
+            padding: 10px 16px;
+            cursor: pointer;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            background: white;
+            color: var(--text);
+            font-weight: 500;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        .filter-button:hover {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        .action-buttons button {
+            flex: 1;
+            padding: 10px 16px;
+            cursor: pointer;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            background: white;
+            color: var(--text);
+            font-weight: 500;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .action-buttons button:hover {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .filter-panel {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: #f9f9f9;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .filter-panel.active {
+            display: block;
+        }
+
+        .filter-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .filter-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-option input[type="radio"] {
+            cursor: pointer;
+        }
+
+        .filter-option label {
+            cursor: pointer;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .item-checkbox-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+        }
+
+        .item-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .item-checkbox input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
+        .item-checkbox label {
+            cursor: pointer;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .item-checkbox img {
+            width: 36px;
+            height: 36px;
+        }
+
+        .item-preview {
+            display: none;
+            position: fixed;
+            background: white;
+            border: 2px solid var(--primary);
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            pointer-events: none;
+        }
+
+        .item-preview.active {
+            display: block;
+        }
+
+        .item-preview img {
+            width: 120px;
+            height: 120px;
+            object-fit: contain;
+        }
+
+        .item-preview-name {
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 8px;
+            text-align: center;
+            color: var(--text);
+        }
+
+        .menu-toggle {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
+        }
+
+        .menu-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(108, 92, 231, 0.4);
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 320px;
+            height: 100vh;
+            background: white;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 999;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .sidebar.active {
+            transform: translateX(0);
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: var(--text);
+        }
+
+        .sidebar-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text);
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-close:hover {
+            color: var(--primary);
+            transform: rotate(90deg);
+        }
+
+        .sidebar-content {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .sidebar-content .scene-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sidebar-content .scene-buttons button {
+            padding: 12px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        .sidebar-content .filter-button,
+        .sidebar-content .action-buttons {
+            width: 100%;
+        }
+
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 998;
+        }
+
+        .sidebar-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .controls {
+            display: none;
+        }
+
+        .drop-zone-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5000;
+            transition: opacity 0.3s ease;
+        }
+
+        .drop-zone-backdrop.hidden {
+            display: none;
+        }
+
+        .drop-zone {
+            position: relative;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 2px dashed var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.drag-over {
+            border-color: var(--primary);
+            background: rgba(108, 92, 231, 0.05);
+            transform: scale(1.02);
+        }
+
+        .drop-zone-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text);
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone-close:hover {
+            color: var(--primary);
+            transform: rotate(90deg);
+        }
+
+        .drop-zone-content {
+            text-align: center;
+            color: var(--text);
+            pointer-events: none;
+        }
+
+        .drop-zone-content h2 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .drop-zone-content .drop-hint {
+            font-size: 16px;
+            margin-bottom: 25px;
+            opacity: 0.8;
+            color: var(--text);
+        }
+
+        .drop-zone-content .drop-icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .drop-zone-content .or-text {
+            font-size: 13px;
+            opacity: 0.6;
+            margin: 15px 0;
+            color: var(--text);
+        }
+
+        .drop-zone-content .file-input-button {
+            margin-top: 15px;
+            padding: 10px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            pointer-events: all;
+        }
+
+        .drop-zone-content .file-input-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(108, 92, 231, 0.3);
+        }
+
+        #hiddenFileInput {
+            display: none;
+        }
+
+        .data-loaded-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #06c755 0%, #34c847 100%);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            z-index: 1001;
+            box-shadow: 0 4px 12px rgba(6, 199, 85, 0.3);
+            animation: slideIn 0.4s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .data-error-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #ff7675 0%, #ff4757 100%);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            z-index: 1001;
+            box-shadow: 0 4px 12px rgba(255, 70, 87, 0.3);
+            animation: slideIn 0.4s ease;
         }
     </style>
 </head>
 <body>
+    <!-- Drop Zone Modal -->
+    <div class="drop-zone-backdrop hidden" id="dropZoneBackdrop">
+        <div class="drop-zone" id="dropZone">
+            <button class="drop-zone-close" onclick="closeDropZoneModal()">✕</button>
+            <div class="drop-zone-content">
+                <div class="drop-icon">📁</div>
+                <h2>Load Data File</h2>
+                <div class="drop-hint">Drag & drop your JSON file here</div>
+                <div class="or-text">or</div>
+                <button class="file-input-button" onclick="document.getElementById('hiddenFileInput').click()">
+                    Browse Files
+                </button>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="hiddenFileInput" />
+
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <div class="sidebar-overlay" onclick="closeSidebar()" id="sidebarOverlay"></div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>Controls</h2>
+            <button class="sidebar-close" onclick="closeSidebar()">✕</button>
+        </div>
+        <div class="sidebar-content" id="sidebarContent">
+        </div>
+    </div>
+
     <div class="container">
         <div class="image-container">
-            <img src="image.png" alt="示例图片" id="image">
+            <img src="image.png" alt="Example image" id="image">
             <canvas class="grid-canvas" id="gridCanvas"></canvas>
         </div>
     </div>
@@ -321,8 +921,27 @@
             <button onclick="selectScene('scene4')" data-scene="scene4">忘れ去られた場所</button>
         </div>
         <br>
-        <button onclick="parseAndMarkPoints()">Mark Points</button>
-        <button onclick="captureScreenshot()">Screenshot</button>
+        <button class="filter-button" onclick="openDropZoneModal()">📤 Load Data File</button>
+        <button class="filter-button" onclick="toggleFilterPanel()">🔍 Filter Items</button>
+
+
+        <div class="filter-panel" id="filterPanel">
+            <div class="filter-options">
+                <div class="filter-option">
+                    <input type="radio" id="filterAll" name="filterMode" value="all" checked onchange="changeFilterMode()">
+                    <label for="filterAll">Show All Items</label>
+                </div>
+                <div class="filter-option">
+                    <input type="radio" id="filterRare" name="filterMode" value="rare" onchange="changeFilterMode()">
+                    <label for="filterRare">Show Rare Items Only</label>
+                </div>
+                <div class="filter-option">
+                    <input type="radio" id="filterCustom" name="filterMode" value="custom" onchange="changeFilterMode()">
+                    <label for="filterCustom">Show Custom Selected Items</label>
+                </div>
+            </div>
+            <div id="itemCheckboxContainer" class="item-checkbox-list"></div>
+        </div>
         <br><br>
         <div class="log-container" id="logContainer"></div>
         <br>
@@ -347,39 +966,17 @@
     </div>
 
     <script>
-        // import html2canvas from 'html2canvas';
-        async function captureScreenshot() {
-            const container = document.querySelector('.container');
-
-            const rect = container.getBoundingClientRect();
-
-            function screenshot(canvas) {
-                const imgData = canvas.toDataURL('image/png');
-
-                const link = document.createElement('a');
-                link.href = imgData;
-                link.download = 'screenshot.png';
-
-                link.click();
-            }
-
-            cav = await html2canvas(document.body, {
-                x: rect.left + window.scrollX,
-                y: rect.top + window.scrollY,
-                width: rect.width,
-                height: rect.height,
-                scrollX: 0,
-                scrollY: 0
-            });
-            screenshot(cav);
-        }
-
         let xDirection = 'x+';
         let yDirection = 'y-';
         let reverseXY = false;
         let currentScene = 'scene1';
         let harvestData = {};
         let lastUpdateTime = 0;
+
+        // Filter variables
+        let filterMode = 'all'; // 'all', 'rare', 'custom'
+        let selectedItems = new Set(); // Set of user-selected item IDs
+        let itemPreview = null; // Item preview element
 
         // Log messages to UI
         function logger(message) {
@@ -566,16 +1163,25 @@
                 physicalWidthInput.value = selectedScene.physicalWidth;
                 offsetXInput.value = selectedScene.offsetX;
                 offsetYInput.value = selectedScene.offsetY;
-                image.src = selectedScene.imagePath;
                 xDirection = selectedScene.xDirection;
                 yDirection = selectedScene.yDirection;
                 reverseXY = selectedScene.reverseXY;
 
                 logger(`Scene changed: ${sceneKey}`);
 
-                // Redraw canvas and clear items
-                initCanvas();
-                parseAndMarkPoints();
+                // Set image path and wait for loading to complete
+                image.src = selectedScene.imagePath;
+
+                // Wait for image loading before initializing canvas and drawing
+                if (image.complete) {
+                    initCanvas();
+                    parseAndMarkPoints();
+                } else {
+                    image.onload = () => {
+                        initCanvas();
+                        parseAndMarkPoints();
+                    };
+                }
             } else {
                 logger(`Scene not found: ${sceneKey}`);
             }
@@ -593,8 +1199,14 @@
             canvas.height = image.clientHeight;
         }
 
+        // Re-initialize canvas and redraw when window is resized
+        let resizeTimeout;
         window.addEventListener('resize', () => {
-            initCanvas();
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                initCanvas();
+                parseAndMarkPoints();
+            }, 250);
         });
 
         function drawGrid() {
@@ -729,6 +1341,25 @@
             const displayX = xDirection === 'x+' ? originX + x * displayGridWidth : originX - x * displayGridWidth;
             const displayY = yDirection === 'y+' ? originY + y * displayGridWidth : originY - y * displayGridWidth;
 
+            // Check if this location has items user wants to see
+            let hasVisibleItems = false;
+            for (const category in point.reward) {
+                if (!point.reward.hasOwnProperty(category)) continue;
+                for (const itemId in point.reward[category]) {
+                    if (!point.reward[category].hasOwnProperty(itemId)) continue;
+                    if (shouldShowItem(category, itemId)) {
+                        hasVisibleItems = true;
+                        break;
+                    }
+                }
+                if (hasVisibleItems) break;
+            }
+
+            // If no visible items and not showing all, skip this point
+            if (!hasVisibleItems && filterMode !== 'all') {
+                return;
+            }
+
             const color = FIXTURE_COLORS[point.fixtureId];
 
             let ifContainRareItem = false;
@@ -755,8 +1386,7 @@
                     ctx.stroke();
                 }
 
-                // Display reward items
-                displayReward(point.reward, displayX + displayGridWidth * 1.5, displayY + displayGridWidth / 1.2, ifContainRareItem);
+                displayReward(point.reward, displayX + displayGridWidth * 0.6, displayY + displayGridWidth * 0.4, ifContainRareItem);
 
             } else {
                 ctx.fillStyle = 'black';
@@ -770,43 +1400,45 @@
             const itemList = document.createElement('div');
             itemList.className = 'item-list';
 
-            const container = document.querySelector('.container');
-            const containerWidth = container.offsetWidth;
-            const screenWidth = window.innerWidth;
-
-            let xOffset = 0;
-            let yOffset = 0;
-
-            if (containerWidth >= 1920) {
-                const emptySpaceWidth = (screenWidth - 1920 - 80) / 2;
-                xOffset = emptySpaceWidth;
-                yOffset = -10;
-            }
-
-            if (reverseXY) {
-                itemList.style.left = `${x + xOffset}px`;
-                itemList.style.top = `${y - 10 + yOffset}px`;
-            } else {
-                itemList.style.left = `${x + xOffset}px`;
-                itemList.style.top = `${y + yOffset}px`;
-            }
+            let hasVisibleItems = false;
 
             for (const category in reward) {
                 if (!reward.hasOwnProperty(category)) continue;
                 for (const itemId in reward[category]) {
                     if (!reward[category].hasOwnProperty(itemId)) continue;
 
+                    // Check if this item should be displayed
+                    if (!shouldShowItem(category, itemId)) {
+                        continue;
+                    }
+
+                    hasVisibleItems = true;
                     const quantity = reward[category][itemId];
-                    const texture = ITEM_TEXTURES[category]?.[itemId] || 'missing.png';
+                    const texture = ITEM_TEXTURES[category]?.[itemId] || './icon/missing.png';
 
                     const itemEntry = document.createElement('div');
                     const itemImage = document.createElement('img');
-                    
+
                     if (category == "mysekai_music_record") {
                         itemImage.src = './icon/Texture2D/item_surplus_music_record.png';
                     } else {
                         itemImage.src = texture;
                     }
+
+                    itemImage.style.cursor = 'pointer';
+                    itemImage.onmouseover = (e) => {
+                        showItemPreview(itemImage.src, `${category} #${itemId}`, e.clientX, e.clientY);
+                    };
+                    itemImage.onmousemove = (e) => {
+                        const preview = itemPreview;
+                        if (preview && preview.classList.contains('active')) {
+                            preview.style.left = (e.clientX + 15) + 'px';
+                            preview.style.top = (e.clientY + 15) + 'px';
+                        }
+                    };
+                    itemImage.onmouseout = () => {
+                        hideItemPreview();
+                    };
 
                     const quantityBadge = document.createElement('span');
                     quantityBadge.className = 'quantity';
@@ -819,19 +1451,68 @@
                         itemEntry.style.display = "inline-block"; // Horizontal layout
                     }
 
-                    itemList.appendChild(itemEntry);  
+                    itemList.appendChild(itemEntry);
                 }
+            }
+
+            // If no visible items, don't show item card
+            if (!hasVisibleItems) {
+                return;
             }
 
             if (ifContainRareItem || reward.hasOwnProperty("mysekai_music_record")) {
                 if (doContainsRareItem(reward, true)) {
-                    itemList.style.background = 'rgba(255, 0, 0, 0.5)';
+                    itemList.style.background = 'rgba(255, 0, 0, 0.85)';
                 } else {
-                    itemList.style.background = 'rgba(0, 0, 180, 0.5)';
+                    itemList.style.background = 'rgba(162, 155, 254, 0.85)';
                 }
             }
 
-            document.body.appendChild(itemList);
+            const imageContainer = document.querySelector('.image-container');
+            imageContainer.appendChild(itemList);
+
+            // Delay boundary detection to wait for DOM rendering to complete
+            setTimeout(() => {
+                const imageContainer = document.querySelector('.image-container');
+                const containerWidth = imageContainer.offsetWidth;
+                const containerHeight = imageContainer.offsetHeight;
+                const itemRect = itemList.getBoundingClientRect();
+                const containerRect = imageContainer.getBoundingClientRect();
+
+                let finalLeft = x;
+                let finalTop = y;
+                const itemWidth = itemRect.width;
+                const itemHeight = itemRect.height;
+                const margin = 5;
+
+                // Check if exceeds right boundary
+                if (x + itemWidth + margin > containerWidth) {
+                    finalLeft = Math.max(0, containerWidth - itemWidth - margin);
+                }
+
+                // Check if exceeds bottom boundary
+                if (y + itemHeight + margin > containerHeight) {
+                    finalTop = Math.max(0, containerHeight - itemHeight - margin);
+                }
+
+                // Check if exceeds top boundary
+                if (finalTop < 0) {
+                    finalTop = margin;
+                }
+
+                // Check if exceeds left boundary
+                if (finalLeft < 0) {
+                    finalLeft = margin;
+                }
+
+                if (reverseXY) {
+                    itemList.style.left = `${finalLeft}px`;
+                    itemList.style.top = `${finalTop - 10}px`;
+                } else {
+                    itemList.style.left = `${finalLeft}px`;
+                    itemList.style.top = `${finalTop}px`;
+                }
+            }, 0);
         }
 
         function adjustItemListPositions(maxLapWidth, maxLapHeight) {
@@ -880,11 +1561,288 @@
             clearItemLists();
         }
 
+        // Filter functions
+        function toggleFilterPanel() {
+            const filterPanel = document.getElementById('filterPanel');
+            filterPanel.classList.toggle('active');
+            if (filterPanel.classList.contains('active')) {
+                initializeItemCheckboxes();
+            }
+        }
+
+        function changeFilterMode() {
+            const selected = document.querySelector('input[name="filterMode"]:checked');
+            filterMode = selected.value;
+            const customCheckboxes = document.getElementById('itemCheckboxContainer');
+
+            if (filterMode === 'custom') {
+                customCheckboxes.style.display = 'grid';
+            } else {
+                customCheckboxes.style.display = 'none';
+            }
+
+            parseAndMarkPoints();
+        }
+
+        function initializeItemCheckboxes() {
+            const container = document.getElementById('itemCheckboxContainer');
+            if (container.children.length > 0) return; // Already initialized
+
+            const allItems = [];
+
+            // Collect all items
+            for (const category in ITEM_TEXTURES) {
+                for (const itemId in ITEM_TEXTURES[category]) {
+                    allItems.push({ category, itemId, path: ITEM_TEXTURES[category][itemId] });
+                }
+            }
+
+            // Create checkboxes
+            allItems.forEach(item => {
+                const checkbox = document.createElement('div');
+                checkbox.className = 'item-checkbox';
+
+                const inputId = `item-${item.category}-${item.itemId}`;
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.id = inputId;
+                input.value = `${item.category}:${item.itemId}`;
+                input.onchange = (e) => {
+                    if (e.target.checked) {
+                        selectedItems.add(e.target.value);
+                    } else {
+                        selectedItems.delete(e.target.value);
+                    }
+                    parseAndMarkPoints();
+                };
+
+                const label = document.createElement('label');
+                label.htmlFor = inputId;
+
+                const img = document.createElement('img');
+                img.src = item.path;
+                img.onerror = function() { this.style.display = 'none'; };
+
+                label.appendChild(img);
+
+                checkbox.appendChild(input);
+                checkbox.appendChild(label);
+                container.appendChild(checkbox);
+            });
+
+            // Hide checkbox container by default
+            if (filterMode !== 'custom') {
+                container.style.display = 'none';
+            }
+        }
+
+        function shouldShowItem(category, itemId) {
+            if (filterMode === 'all') {
+                return true;
+            } else if (filterMode === 'rare') {
+                const rareItems = RARE_ITEM[category] || [];
+                return rareItems.includes(parseInt(itemId));
+            } else if (filterMode === 'custom') {
+                return selectedItems.has(`${category}:${itemId}`);
+            }
+            return true;
+        }
+
+        // Initialize item preview
+        function createItemPreview() {
+            if (!itemPreview) {
+                itemPreview = document.createElement('div');
+                itemPreview.className = 'item-preview';
+                document.body.appendChild(itemPreview);
+            }
+            return itemPreview;
+        }
+
+        function showItemPreview(imgSrc, itemName, mouseX, mouseY) {
+            const preview = createItemPreview();
+            preview.innerHTML = `<img src="${imgSrc}" onerror="this.style.display='none'">`;
+            preview.classList.add('active');
+            preview.style.left = (mouseX + 15) + 'px';
+            preview.style.top = (mouseY + 15) + 'px';
+        }
+
+        function hideItemPreview() {
+            if (itemPreview) {
+                itemPreview.classList.remove('active');
+            }
+        }
+
+        // Sidebar functions
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const menuToggle = document.querySelector('.menu-toggle');
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+            menuToggle.style.display = sidebar.classList.contains('active') ? 'none' : 'flex';
+        }
+
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const menuToggle = document.querySelector('.menu-toggle');
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+            menuToggle.style.display = 'flex';
+        }
+
+        function initializeSidebar() {
+            const sidebarContent = document.getElementById('sidebarContent');
+            const controlsDiv = document.querySelector('.controls');
+
+            if (sidebarContent.innerHTML.trim() === '') {
+                sidebarContent.innerHTML = controlsDiv.innerHTML;
+            }
+        }
+
+        // Drop Zone and File Upload Functions
+        let dataLoadedFromFile = false;
+
+        function openDropZoneModal() {
+            const backdrop = document.getElementById('dropZoneBackdrop');
+            backdrop.classList.remove('hidden');
+        }
+
+        function closeDropZoneModal() {
+            const backdrop = document.getElementById('dropZoneBackdrop');
+            backdrop.classList.add('hidden');
+        }
+
+        function showDataLoadedIndicator(fileName) {
+            const indicator = document.createElement('div');
+            indicator.className = 'data-loaded-indicator';
+            indicator.textContent = `✓ Loaded: ${fileName}`;
+            document.body.appendChild(indicator);
+            setTimeout(() => indicator.remove(), 3000);
+        }
+
+        function showDataErrorIndicator(message) {
+            const indicator = document.createElement('div');
+            indicator.className = 'data-error-indicator';
+            indicator.textContent = `✗ Error: ${message}`;
+            document.body.appendChild(indicator);
+            setTimeout(() => indicator.remove(), 4000);
+        }
+
+        function processJsonFile(content, fileName) {
+            try {
+                const gameData = JSON.parse(content);
+                harvestData = parseMapData(gameData);
+                lastUpdateTime = Date.now() / 1000;
+
+                const sceneNames = Object.keys(harvestData);
+                if (sceneNames.length === 0) {
+                    logger('Warning: No scene data in file');
+                    showDataErrorIndicator('No valid scene data found');
+                    return false;
+                }
+
+                logger(`Data loaded from file: ${fileName}`);
+                logger('Data loaded: ' + sceneNames.join(', '));
+                updateSceneButtonStatus();
+                parseAndMarkPoints();
+                closeDropZoneModal();
+                showDataLoadedIndicator(fileName);
+                dataLoadedFromFile = true;
+                return true;
+            } catch (error) {
+                logger('Error parsing JSON: ' + error.message);
+                showDataErrorIndicator('Invalid JSON format');
+                return false;
+            }
+        }
+
+        function handleFileUpload(file) {
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                const content = e.target.result;
+                processJsonFile(content, file.name);
+            };
+
+            reader.onerror = () => {
+                logger('Error reading file');
+                showDataErrorIndicator('Failed to read file');
+            };
+
+            reader.readAsText(file);
+        }
+
+        function initializeDropZone() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('hiddenFileInput');
+            const backdrop = document.getElementById('dropZoneBackdrop');
+
+            // Drag and drop events
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFileUpload(files[0]);
+                }
+            });
+
+            // File input change
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            });
+
+            // Close modal when clicking outside
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) {
+                    closeDropZoneModal();
+                }
+            });
+
+            // Prevent default drag behavior on body
+            document.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+
+            document.addEventListener('drop', (e) => {
+                e.preventDefault();
+            });
+        }
+
         // Initialize on page load
         window.addEventListener('load', () => {
-            logger('Page loaded. Loading local data...');
+            logger('Page loaded. Please load a data file to continue.');
+            initializeSidebar();
+            initializeDropZone();
+
+            // Wait for image loading before initializing canvas
+            if (image.complete) {
+                // Image is already cached
+                initCanvas();
+            } else {
+                // Wait for image loading
+                image.addEventListener('load', () => {
+                    initCanvas();
+                });
+            }
             selectScene('scene1');
-            loadLocalData();
+
+            // Show upload modal on page load
+            openDropZoneModal();
         });
     </script>
 </body>

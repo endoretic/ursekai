@@ -10,32 +10,9 @@ Please figure it out yourself.
 
 Or you might refer to <https://github.com/mos9527/sssekai>
 
-When you're done, rename THAT SHIT to `mysekai_data.json` and place it under root directory.
-
 ## How to Start
 
-You **need a local server** to read the JSON file (browser security restriction).
-
-### Option 1: Using launcher script
-
-```bash
-# Windows
-start_webui.bat
-
-# Linux/Mac
-python3 webui.py
-```
-
-### Option 2: Using Python's built-in HTTP server
-
-```bash
-# Navigate to project directory, then run:
-python -m http.server 8000
-
-# Open browser to: http://localhost:8000/paint_local.html
-```
-
-Press `Ctrl+C` to stop the server.
+Open `paint_local.html` in your browser and upload your JSON data file. (Or run `start_webui.bat` to start a local server)
 
 ## Supported Scenes
 
@@ -49,19 +26,18 @@ Press `Ctrl+C` to stop the server.
 ## Project Structure
 
 ```text
-pjsk-mysekai-xray-prototype/
-├── paint_local.html              # Main viewer (open this file!)
-├── mysekai_data.json             # Game data (required)
-├── start_server.py               # Optional: local server launcher
-├── start_server.bat              # Convenience: Windows launcher
+ursekai-xray/
+├── paint_local.html              # Main viewer (open directly in browser)
+├── start_webui.bat               # Windows local server launcher
+├── webui.py                      # Python local server
 ├── icon/
-│   ├── Texture2D/                # 53 item texture files
+│   ├── Texture2D/                # Item texture PNG files
 │   └── clean_up.py               # Asset verification utility
-├── img/                           # 4 scene background images
-├── CLAUDE.md                      # Developer documentation
-├── OFFLINE_USAGE.md              # Offline usage guide (Chinese)
-├── README.md                      # This file
-└── LICENSE                        # MIT License
+├── img/                          # Scene background images
+├── testdata/                     # Sample data files
+├── CLAUDE.md                     # Developer documentation
+├── README.md                     # This file
+└── LICENSE                       # MIT License
 ```
 
 ## How It Works
@@ -69,11 +45,10 @@ pjsk-mysekai-xray-prototype/
 ### Data Processing Pipeline
 
 ```text
-mysekai_data.json
+User uploads JSON file
         ↓
-paint_local.html (browser loads & parses directly)
-  ├─ Fetch mysekai_data.json
-  ├─ Parse map data with parseMapData() function
+paint_local.html (parses data in browser)
+  ├─ Parse map data with parseMapData()
   │   └─ Extract spawned fixtures & their rewards
   └─ Render visual overlay on canvas
         ↓
@@ -88,14 +63,14 @@ Display in browser
 ### Core Functions
 
 - `parseMapData(gameData)` - Parse raw game API response
-- `loadLocalData()` - Load mysekai_data.json file
+- `handleFileUpload(file)` - Handle uploaded JSON file
 - `parseAndMarkPoints()` - Mark all fixtures on current scene
 - `markPoint(point)` - Draw individual fixture on canvas
 - `displayReward(reward, x, y)` - Show item rewards at fixture location
 
 ## Data File Format
 
-`mysekai_data.json` should looks like：
+Your JSON file should have the following structure:
 
 ```json
 {
