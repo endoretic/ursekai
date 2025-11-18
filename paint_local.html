@@ -391,6 +391,9 @@
             padding: 4px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
+            /* Create a new composite layer for better rendering performance */
+            will-change: transform;
+            transform: translate3d(0, 0, 0);
         }
 
         .item-list img {
@@ -908,7 +911,7 @@
 
     <div class="container">
         <div class="image-container">
-            <img src="image.png" alt="Example image" id="image">
+            <img alt="Scene background" id="image">
             <canvas class="grid-canvas" id="gridCanvas"></canvas>
         </div>
     </div>
@@ -1210,10 +1213,11 @@
         let resizeTimeout;
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimeout);
+            // Delay increased to 400ms to avoid conflicts with sidebar CSS animations (0.3s)
             resizeTimeout = setTimeout(() => {
                 initCanvas();
                 parseAndMarkPoints();
-            }, 250);
+            }, 400);
         });
 
         function drawGrid() {
@@ -1315,8 +1319,18 @@
                     points.forEach(point => markPoint({location: [point.location[1], point.location[0]], fixtureId: point.fixtureId, reward: point.reward}));
                 }
 
-                // Adjust item list positions to avoid overlap
-                adjustItemListPositions(5, 5);
+                // Delay position adjustments to after DOM rendering settles
+                // This prevents read-write-read conflicts with getBoundingClientRect
+                requestAnimationFrame(() => {
+                    // First, process individual item boundary adjustments
+                    processPendingItemPositions();
+                    // Skip collision detection for large numbers of fixtures to avoid layout thrashing
+                    // O(n²) algorithm becomes expensive with 50+ items during CSS animations
+                    if (points.length < 50) {
+                        adjustItemListPositions(5, 5);
+                    }
+                });
+
                 logger(`Marked ${points.length} fixtures`);
             } catch (error) {
                 logger("Error marking points: " + error.message);
@@ -1403,6 +1417,9 @@
         }
 
 
+        // Global list to batch position adjustments
+        let pendingItemPositions = [];
+
         function displayReward(reward, x, y, ifContainRareItem) {
             const itemList = document.createElement('div');
             itemList.className = 'item-list';
@@ -1478,14 +1495,21 @@
             const imageContainer = document.querySelector('.image-container');
             imageContainer.appendChild(itemList);
 
-            // Delay boundary detection to wait for DOM rendering to complete
-            setTimeout(() => {
-                const imageContainer = document.querySelector('.image-container');
-                const containerWidth = imageContainer.offsetWidth;
-                const containerHeight = imageContainer.offsetHeight;
-                const itemRect = itemList.getBoundingClientRect();
-                const containerRect = imageContainer.getBoundingClientRect();
+            // Queue position adjustment instead of using setTimeout to avoid event queue congestion
+            pendingItemPositions.push({ itemList, x, y });
+        }
 
+        function processPendingItemPositions() {
+            if (pendingItemPositions.length === 0) return;
+
+            const imageContainer = document.querySelector('.image-container');
+            const containerWidth = imageContainer.offsetWidth;
+            const containerHeight = imageContainer.offsetHeight;
+
+            // Process all pending positions in one batch using transform for better performance
+            // transform only requires compositing, not layout recalculation
+            pendingItemPositions.forEach(({ itemList, x, y }) => {
+                const itemRect = itemList.getBoundingClientRect();
                 let finalLeft = x;
                 let finalTop = y;
                 const itemWidth = itemRect.width;
@@ -1513,13 +1537,19 @@
                 }
 
                 if (reverseXY) {
-                    itemList.style.left = `${finalLeft}px`;
-                    itemList.style.top = `${finalTop - 10}px`;
+                    // Use transform instead of left/top for better compositing performance
+                    itemList.style.left = `0px`;
+                    itemList.style.top = `0px`;
+                    itemList.style.transform = `translate(${finalLeft}px, ${finalTop - 10}px)`;
                 } else {
-                    itemList.style.left = `${finalLeft}px`;
-                    itemList.style.top = `${finalTop}px`;
+                    // Use transform instead of left/top for better compositing performance
+                    itemList.style.left = `0px`;
+                    itemList.style.top = `0px`;
+                    itemList.style.transform = `translate(${finalLeft}px, ${finalTop}px)`;
                 }
-            }, 0);
+            });
+
+            pendingItemPositions = [];
         }
 
         function adjustItemListPositions(maxLapWidth, maxLapHeight) {
@@ -1538,12 +1568,19 @@
                     const overlapHeight = Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top, rect2.top);
 
                     if (overlapWidth > 0 && overlapHeight > 0 && (overlapWidth > maxLapWidth || overlapHeight > maxLapHeight)) {
+                        // Extract current transform translate values or parse from style
+                        // Since we use transform, we need to calculate the adjustment and update transform
+                        const transform = itemLists[j].style.transform;
+                        const translateMatch = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+                        const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0;
+                        const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0;
+
                         if (reverseXY) {
-                            const currentTop = parseFloat(itemLists[j].style.top || 0);
-                            itemLists[j].style.top = `${currentTop - overlapHeight / 1.25}px`;
+                            const newY = currentY - overlapHeight / 1.25;
+                            itemLists[j].style.transform = `translate(${currentX}px, ${newY}px)`;
                         } else {
-                            const currentLeft = parseFloat(itemLists[j].style.left || 0);
-                            itemLists[j].style.left = `${currentLeft - overlapWidth / 1.25}px`;
+                            const newX = currentX - overlapWidth / 1.25;
+                            itemLists[j].style.transform = `translate(${newX}px, ${currentY}px)`;
                         }
                     }
                 }
@@ -1559,6 +1596,8 @@
         function clearItemLists() {
             // Remove all item lists from page
             document.querySelectorAll('.item-list').forEach(item => item.remove());
+            // Clear any pending position adjustments
+            pendingItemPositions = [];
         }
 
         function clearGrid() {
