@@ -6,9 +6,9 @@ A goldminer, visualizer, a cheater (or anything you'd like to call) for ur sekai
 
 I do not provide, nor do I have the methods and capabilities for packet capture and reverse analysis.
 
-Please figure it out yourself.
+Please refer to <https://github.com/mos9527/sssekai> or <https://github.com/Huac233/pjsk-mysekai-xray/tree/never_gonna_give_you_up> for more details.
 
-Or you might refer to <https://github.com/mos9527/sssekai> for more details.
+~~应群友要求，现在强兼了@Huac233的格式。what can i say~~
 
 ## How to Start
 

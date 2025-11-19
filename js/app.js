@@ -45,8 +45,95 @@ function logger(message) {
     logContainer.scrollTop = logContainer.scrollHeight;
 }
 
-// Parse harvest map data from game API response
-function parseMapData(gameData) {
+// Detect and determine JSON format type
+function detectDataFormat(gameData) {
+    // Check for standard format (API response)
+    if (gameData && typeof gameData === 'object' && gameData.updatedResources) {
+        return 'standard';
+    }
+
+    // Check for simplified format (site names as keys)
+    if (gameData && typeof gameData === 'object') {
+        for (const key in gameData) {
+            if (key.startsWith('Site:')) {
+                return 'simplified';
+            }
+        }
+    }
+
+    return 'unknown';
+}
+
+// Parse simplified JSON format
+function parseMapDataSimplified(gameData) {
+    if (!gameData || typeof gameData !== 'object') {
+        logger('Error: Invalid data format');
+        return {};
+    }
+
+    const processedMap = {};
+    let totalScenes = 0;
+
+    // Map site names to scene keys
+    const siteNameToScene = {
+        'Site: 初始空地': 'さいしょの原っぱ',
+        'Site: 心愿沙滩': '願いの砂浜',
+        'Site: 烂漫花田': '彩りの花畑',
+        'Site: 忘却之所': '忘れ去られた場所'
+    };
+
+    // Process each site
+    for (const siteName in gameData) {
+        if (!gameData.hasOwnProperty(siteName)) continue;
+
+        // Get the corresponding scene name
+        const sceneName = siteNameToScene[siteName];
+        if (!sceneName) {
+            logger(`Warning: Unknown site format "${siteName}"`);
+            continue;
+        }
+
+        const fixtures = gameData[siteName];
+
+        // Verify it's an array
+        if (!Array.isArray(fixtures)) {
+            logger(`Warning: Site data for "${siteName}" is not an array`);
+            continue;
+        }
+
+        const mpDetail = [];
+
+        // Process each fixture in the array
+        fixtures.forEach(fixture => {
+            if (!fixture.location || !fixture.fixtureId) {
+                return; // Skip invalid fixtures
+            }
+
+            const point = {
+                location: fixture.location,
+                fixtureId: fixture.fixtureId,
+                reward: fixture.reward || {}
+            };
+
+            mpDetail.push(point);
+        });
+
+        processedMap[sceneName] = mpDetail;
+        logger(`Scene "${sceneName}" loaded: ${mpDetail.length} fixtures`);
+        totalScenes++;
+    }
+
+    if (totalScenes === 0) {
+        logger('Warning: No valid scenes found in simplified format');
+    } else {
+        logger(`Found ${totalScenes} scenes in simplified format`);
+    }
+
+    return processedMap;
+}
+
+// Parse harvest map data from game API response (standard format)
+function parseMapDataStandard(gameData) {
     if (!gameData) {
         logger('Error: gameData is null');
         return {};
@@ -109,6 +196,22 @@ function parseMapData(gameData) {
     });
 
     return processedMap;
+}
+
+// Parse harvest map data - auto-detects format and processes accordingly
+function parseMapData(gameData) {
+    const format = detectDataFormat(gameData);
+
+    if (format === 'standard') {
+        logger('Detected standard format (API response)');
+        return parseMapDataStandard(gameData);
+    } else if (format === 'simplified') {
+        logger('Detected simplified format (site-indexed)');
+        return parseMapDataSimplified(gameData);
+    } else {
+        logger('Error: Unable to detect data format');
+        return {};
+    }
 }
 
 // Load data from local mysekai_data.json file
@@ -244,10 +347,8 @@ function drawGrid() {
     const displayWidth = image.clientWidth;
     const displayHeight = image.clientHeight;
     const naturalWidth = image.naturalWidth;
-    const naturalHeight = image.naturalHeight;
 
     const scaleX = displayWidth / naturalWidth;
-    const scaleY = displayHeight / naturalHeight;
 
     const displayGridWidth = physicalGridWidth * scaleX;
 
@@ -720,7 +821,7 @@ function createItemPreview() {
     return itemPreview;
 }
 
-function showItemPreview(imgSrc, itemName, mouseX, mouseY) {
+function showItemPreview(imgSrc, mouseX, mouseY) {
     const preview = createItemPreview();
     preview.innerHTML = `<img src="${imgSrc}" onerror="this.style.display='none'">`;
     preview.classList.add('active');
@@ -791,30 +892,82 @@ function showDataErrorIndicator(message) {
     setTimeout(() => indicator.remove(), 4000);
 }
 
-function processJsonFile(content, fileName) {
-    try {
-        const gameData = JSON.parse(content);
-        harvestData = parseMapData(gameData);
-        lastUpdateTime = Date.now() / 1000;
+// Parse custom mixed format (Site name + JSON array lines)
+function parseCustomFormat(content) {
+    const lines = content.split('\n');
+    const result = {};
 
-        const sceneNames = Object.keys(harvestData);
-        if (sceneNames.length === 0) {
-            logger('Warning: No scene data in file');
-            showDataErrorIndicator('No valid scene data found');
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+
+        // Check if this line starts with "Site:"
+        if (line.startsWith('Site:')) {
+            // The next line should be the JSON array
+            if (i + 1 < lines.length) {
+                const siteNameLine = line;
+                const jsonLine = lines[i + 1].trim();
+
+                try {
+                    const fixtures = JSON.parse(jsonLine);
+                    if (Array.isArray(fixtures)) {
+                        result[siteNameLine] = fixtures;
+                    }
+                } catch (e) {
+                    // Skip lines that can't be parsed as JSON
+                }
+            }
+        }
+    }
+
+    return Object.keys(result).length > 0 ? result : null;
+}
+
+function processJsonFile(content, fileName) {
+    let gameData = null;
+    let parseMethod = 'unknown';
+
+    // Method 1: Try standard JSON format
+    try {
+        gameData = JSON.parse(content);
+        parseMethod = 'standard JSON';
+    } catch (error) {
+        // Method 2: Try custom mixed format (Site: name + JSON array)
+        gameData = parseCustomFormat(content);
+        if (gameData) {
+            parseMethod = 'custom mixed format';
+        }
+    }
+
+    // If we got data from either method, try to process it
+    if (gameData) {
+        try {
+            harvestData = parseMapData(gameData);
+            lastUpdateTime = Date.now() / 1000;
+
+            const sceneNames = Object.keys(harvestData);
+            if (sceneNames.length === 0) {
+                logger('Warning: No valid scenes found in data');
+                showDataErrorIndicator('No valid scene data found in file');
+                return false;
+            }
+
+            logger(`Successfully parsed with ${parseMethod}`);
+            logger(`Data loaded from file: ${fileName}`);
+            logger('Data loaded: ' + sceneNames.join(', '));
+            updateSceneButtonStatus();
+            parseAndMarkPoints();
+            closeDropZoneModal();
+            showDataLoadedIndicator(fileName);
+            dataLoadedFromFile = true;
+            return true;
+        } catch (error) {
+            logger('Error processing extracted data: ' + error.message);
+            showDataErrorIndicator('Error processing data: ' + error.message);
             return false;
         }
-
-        logger(`Data loaded from file: ${fileName}`);
-        logger('Data loaded: ' + sceneNames.join(', '));
-        updateSceneButtonStatus();
-        parseAndMarkPoints();
-        closeDropZoneModal();
-        showDataLoadedIndicator(fileName);
-        dataLoadedFromFile = true;
-        return true;
-    } catch (error) {
-        logger('Error parsing JSON: ' + error.message);
-        showDataErrorIndicator('Invalid JSON format');
+    } else {
+        logger('Error: Could not parse file with any supported format');
+        showDataErrorIndicator('File format not supported. Please use standard JSON or Site: format');
         return false;
     }
 }
