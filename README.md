@@ -8,7 +8,7 @@ I do not provide, nor do I have the methods and capabilities for packet capture 
 
 Please figure it out yourself.
 
-Or you might refer to <https://github.com/mos9527/sssekai>
+Or you might refer to <https://github.com/mos9527/sssekai> for more details.
 
 ## How to Start
 
@@ -27,15 +27,17 @@ Or you might refer to <https://github.com/mos9527/sssekai>
 
 ```text
 ursekai-xray/
-├── paint_local.html              # Main viewer (open directly in browser)
+├── paint_local.html              # Main viewer (browser-based)
+├── index.html                    # Web UI entry point
 ├── start_webui.bat               # Windows local server launcher
 ├── webui.py                      # Python local server
 ├── icon/
 │   ├── Texture2D/                # Item texture PNG files
-│   └── clean_up.py               # Asset verification utility
+│   ├── clean_up.py               # Asset verification utility
+│   └── missing.png               # Missing texture placeholder
 ├── img/                          # Scene background images
-├── testdata/                     # Sample data files
-├── CLAUDE.md                     # Developer documentation
+├── css/                          # Stylesheet files
+├── js/                           # JavaScript modules
 ├── README.md                     # This file
 └── LICENSE                       # MIT License
 ```
