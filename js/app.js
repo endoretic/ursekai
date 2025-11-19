@@ -349,6 +349,9 @@ function parseAndMarkPoints() {
         });
 
         logger(`Marked ${points.length} fixtures`);
+
+        // Update item summary
+        updateItemSummary();
     } catch (error) {
         logger("Error marking points: " + error.message);
     }
@@ -880,6 +883,89 @@ function initializeDropZone() {
     document.addEventListener('drop', (e) => {
         e.preventDefault();
     });
+}
+
+// Calculate and display item summary for current scene
+function updateItemSummary() {
+    const sceneNameMap = {
+        'scene1': 'さいしょの原っぱ',
+        'scene2': '彩りの花畑',
+        'scene3': '願いの砂浜',
+        'scene4': '忘れ去られた場所'
+    };
+
+    const sceneName = sceneNameMap[currentScene];
+    const points = harvestData[sceneName];
+    const summaryContainer = document.getElementById('itemSummary');
+
+    if (!points || !Array.isArray(points) || points.length === 0) {
+        summaryContainer.innerHTML = '<div class="item-summary-empty">No items in this scene</div>';
+        return;
+    }
+
+    // Aggregate items with their quantities
+    const itemMap = {}; // { "category_itemId": { texture, quantity, category, itemId } }
+
+    points.forEach(point => {
+        for (const category in point.reward) {
+            if (!point.reward.hasOwnProperty(category)) continue;
+            for (const itemId in point.reward[category]) {
+                if (!point.reward[category].hasOwnProperty(itemId)) continue;
+
+                // Check if this item should be displayed
+                if (!shouldShowItem(category, itemId)) {
+                    continue;
+                }
+
+                const key = `${category}_${itemId}`;
+                const quantity = point.reward[category][itemId];
+
+                if (!itemMap[key]) {
+                    let texture = ITEM_TEXTURES[category]?.[itemId] || './icon/missing.png';
+                    if (category === "mysekai_music_record") {
+                        texture = './icon/Texture2D/item_surplus_music_record.png';
+                    }
+
+                    itemMap[key] = {
+                        texture: texture,
+                        quantity: 0,
+                        category: category,
+                        itemId: itemId
+                    };
+                }
+
+                itemMap[key].quantity += quantity;
+            }
+        }
+    });
+
+    // Render item summary
+    if (Object.keys(itemMap).length === 0) {
+        summaryContainer.innerHTML = '<div class="item-summary-empty">No items to display based on current filter</div>';
+        return;
+    }
+
+    let html = '<h3>📊 Scene Items Summary</h3><div class="item-summary-content">';
+
+    // Sort items by category for better organization
+    const sortedItems = Object.values(itemMap).sort((a, b) => {
+        if (a.category !== b.category) {
+            return a.category.localeCompare(b.category);
+        }
+        return a.itemId - b.itemId;
+    });
+
+    sortedItems.forEach(item => {
+        html += `
+            <div class="item-summary-item" title="${item.category} #${item.itemId}">
+                <img src="${item.texture}" alt="${item.category} #${item.itemId}">
+                <span class="item-summary-quantity">×${item.quantity}</span>
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    summaryContainer.innerHTML = html;
 }
 
 // Initialize on page load
