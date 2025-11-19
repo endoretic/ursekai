@@ -12,7 +12,7 @@ Or you might refer to <https://github.com/mos9527/sssekai>
 
 ## How to Start
 
-Open `paint_local.html` in your browser and upload your JSON data file. (Or run `start_webui.bat` to start a local server)
+<https://endoretic.github.io/ursekai-xray/>. (Or run `start_webui.bat` to start a local server)
 
 ## Supported Scenes
 
