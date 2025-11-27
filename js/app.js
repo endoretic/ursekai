@@ -669,39 +669,91 @@ function processPendingItemPositions() {
     pendingItemPositions = [];
 }
 
+// Build spatial grid for efficient collision detection
+function buildSpatialGrid(itemLists, gridSize = 220) {
+    const grid = {};
+
+    itemLists.forEach((item, idx) => {
+        const rect = item.getBoundingClientRect();
+
+        // Calculate which grid cells this item overlaps
+        const minCellX = Math.floor(rect.left / gridSize);
+        const maxCellX = Math.floor(rect.right / gridSize);
+        const minCellY = Math.floor(rect.top / gridSize);
+        const maxCellY = Math.floor(rect.bottom / gridSize);
+
+        // Add item to all overlapping grid cells
+        for (let x = minCellX; x <= maxCellX; x++) {
+            for (let y = minCellY; y <= maxCellY; y++) {
+                const key = `${x},${y}`;
+                if (!grid[key]) grid[key] = [];
+                grid[key].push(idx);
+            }
+        }
+    });
+
+    return grid;
+}
+
+// Resolve collision between two item lists
+function resolveItemCollision(itemList1, itemList2, maxLapWidth, maxLapHeight) {
+    const rect1 = itemList1.getBoundingClientRect();
+    const rect2 = itemList2.getBoundingClientRect();
+
+    // Check for overlaps exceeding threshold
+    const overlapWidth = Math.min(rect1.right, rect2.right) - Math.max(rect1.left, rect2.left);
+    const overlapHeight = Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top, rect2.top);
+
+    if (overlapWidth > 0 && overlapHeight > 0 && (overlapWidth > maxLapWidth || overlapHeight > maxLapHeight)) {
+        // Extract current transform translate values
+        const transform = itemList2.style.transform;
+        const translateMatch = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+        const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0;
+        const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0;
+
+        if (reverseXY) {
+            const newY = currentY - overlapHeight / 1.25;
+            itemList2.style.transform = `translate(${currentX}px, ${newY}px)`;
+        } else {
+            const newX = currentX - overlapWidth / 1.25;
+            itemList2.style.transform = `translate(${newX}px, ${currentY}px)`;
+        }
+    }
+}
+
 function adjustItemListPositions(maxLapWidth, maxLapHeight) {
     const itemLists = Array.from(document.querySelectorAll('.item-list'));
 
-    for (let i = 0; i < itemLists.length; i++) {
-        const rect1 = itemLists[i].getBoundingClientRect();
+    // For small numbers of items, use original O(n²) approach (faster due to no grid overhead)
+    if (itemLists.length < 50) {
+        for (let i = 0; i < itemLists.length; i++) {
+            for (let j = i + 1; j < itemLists.length; j++) {
+                resolveItemCollision(itemLists[i], itemLists[j], maxLapWidth, maxLapHeight);
+            }
+        }
+        return;
+    }
 
-        for (let j = i; j < itemLists.length; j++) {
-            if (i === j) continue;
+    // For large numbers of items, use spatial grid for O(n) average complexity
+    const grid = buildSpatialGrid(itemLists, 220);
+    const checked = new Set();
 
-            const rect2 = itemLists[j].getBoundingClientRect();
+    // Check collisions only within grid cells and adjacent cells
+    Object.values(grid).forEach(cellIndices => {
+        for (let i = 0; i < cellIndices.length; i++) {
+            for (let j = i + 1; j < cellIndices.length; j++) {
+                const idx1 = cellIndices[i];
+                const idx2 = cellIndices[j];
+                const key = `${Math.min(idx1, idx2)},${Math.max(idx1, idx2)}`;
 
-            // Check for overlaps exceeding threshold
-            const overlapWidth = Math.min(rect1.right, rect2.right) - Math.max(rect1.left, rect2.left);
-            const overlapHeight = Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top, rect2.top);
-
-            if (overlapWidth > 0 && overlapHeight > 0 && (overlapWidth > maxLapWidth || overlapHeight > maxLapHeight)) {
-                // Extract current transform translate values or parse from style
-                // Since we use transform, we need to calculate the adjustment and update transform
-                const transform = itemLists[j].style.transform;
-                const translateMatch = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
-                const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0;
-                const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0;
-
-                if (reverseXY) {
-                    const newY = currentY - overlapHeight / 1.25;
-                    itemLists[j].style.transform = `translate(${currentX}px, ${newY}px)`;
-                } else {
-                    const newX = currentX - overlapWidth / 1.25;
-                    itemLists[j].style.transform = `translate(${newX}px, ${currentY}px)`;
+                // Avoid checking same pair multiple times (item might be in multiple cells)
+                if (!checked.has(key)) {
+                    resolveItemCollision(itemLists[idx1], itemLists[idx2], maxLapWidth, maxLapHeight);
+                    checked.add(key);
                 }
             }
         }
-    }
+    });
 }
 
 function setDirection(newXDirection, newYDirection) {
