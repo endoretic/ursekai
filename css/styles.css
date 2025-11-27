@@ -212,10 +212,17 @@ body {
     text-align: left;
     padding: 4px;
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3);
     /* Create a new composite layer for better rendering performance */
-    will-change: transform;
+    will-change: transform, z-index, box-shadow;
     transform: translate3d(0, 0, 0);
+    z-index: 1;
+    transition: z-index 0.1s ease, box-shadow 0.2s ease;
+}
+
+.item-list:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 12px rgba(108, 92, 231, 0.5);
 }
 
 .item-list img {
