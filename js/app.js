@@ -506,28 +506,26 @@ function markPoint(point) {
 
     let ifContainRareItem = false;
     if (color) {
-        // Draw point
-        ctx.fillStyle = color;
+        const containsRareItem = doContainsRareItem(point.reward);
+
+        // Outer glow layer - unified bright glow effect for all harvest points
+        const outerRadius = 11;
+        const gradient = ctx.createRadialGradient(displayX, displayY, 0, displayX, displayY, outerRadius);
+        gradient.addColorStop(0, 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' + parseInt(color.slice(5, 7), 16) + ',0.5)');
+        gradient.addColorStop(0.5, 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' + parseInt(color.slice(5, 7), 16) + ',0.25)');
+        gradient.addColorStop(1, 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' + parseInt(color.slice(5, 7), 16) + ',0)');
+        ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(displayX, displayY, 5, 0, Math.PI * 2);
+        ctx.arc(displayX, displayY, outerRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        const containsRareItem = doContainsRareItem(point.reward);
-        if (containsRareItem) {
-            // Draw red border
-            ctx.strokeStyle = 'red';
-            ctx.beginPath();
-            ctx.arc(displayX, displayY, 5, 0, Math.PI * 2);
-            ctx.stroke();
-            ifContainRareItem = true;
-        } else {
-            // Draw black border
-            ctx.strokeStyle = 'black';
-            ctx.beginPath();
-            ctx.arc(displayX, displayY, 5, 0, Math.PI * 2);
-            ctx.stroke();
-        }
+        // Inner core - solid point (larger)
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(displayX, displayY, 6.5, 0, Math.PI * 2);
+        ctx.fill();
 
+        ifContainRareItem = containsRareItem;
         displayReward(point.reward, displayX + displayGridWidth * 0.6, displayY + displayGridWidth * 0.4, ifContainRareItem);
 
     } else {
@@ -603,9 +601,9 @@ function displayReward(reward, x, y, ifContainRareItem) {
 
     if (ifContainRareItem || reward.hasOwnProperty("mysekai_music_record")) {
         if (doContainsRareItem(reward, true)) {
-            itemList.style.background = 'rgba(255, 0, 0, 0.85)';
+            itemList.style.background = 'rgba(197, 100, 119, 0.95)';
         } else {
-            itemList.style.background = 'rgba(162, 155, 254, 0.85)';
+            itemList.style.background = 'rgba(88, 83, 135, 0.95)';
         }
     }
 
