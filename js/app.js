@@ -14,6 +14,15 @@ let itemPreview = null; // Item preview element
 // Global list to batch position adjustments
 let pendingItemPositions = [];
 
+// Debounce timers for performance optimization
+let filterDebounceTimer = null;
+const FILTER_DEBOUNCE_DELAY = 150; // ms - delay before triggering redraw
+
+// Canvas dirty region tracking for performance
+let lastRenderedPoints = [];
+const dirtyRegions = [];
+let isDirtyCanvasEnabled = true;
+
 // DOM elements
 let image;
 let canvas;
@@ -310,6 +319,9 @@ function selectScene(sceneKey) {
                 requestAnimationFrame(() => {
                     initCanvas();
                     parseAndMarkPoints();
+
+                    // Preload textures for current scene (priority loading)
+                    preloadSceneTextures(sceneKey);
                 });
             });
         };
@@ -417,8 +429,16 @@ function parseAndMarkPoints() {
         const sceneName = sceneNameMap[currentScene];
         const points = harvestData[sceneName];
 
-        // Clear canvas and items
-        initCanvas();
+        // Use dirty region detection if enabled
+        const usePartialRedraw = isDirtyCanvasEnabled && lastRenderedPoints.length > 0 && calculateDirtyRegions(points);
+
+        if (usePartialRedraw) {
+            clearDirtyRegions();
+        } else {
+            // Full canvas clear for first render or significant changes
+            initCanvas();
+        }
+
         clearItemLists();
 
         if (!points) {
@@ -431,20 +451,19 @@ function parseAndMarkPoints() {
             return;
         }
 
+        // Batch DOM insertions using DocumentFragment
+        const fragment = document.createDocumentFragment();
         if (!reverseXY) {
-            points.forEach(point => markPoint(point));
+            points.forEach(point => markPoint(point, fragment));
         } else {
-            points.forEach(point => markPoint({location: [point.location[1], point.location[0]], fixtureId: point.fixtureId, reward: point.reward}));
+            points.forEach(point => markPoint({location: [point.location[1], point.location[0]], fixtureId: point.fixtureId, reward: point.reward}, fragment));
         }
+        document.querySelector('.image-container').appendChild(fragment);
 
-        // Delay position adjustments to after DOM rendering settles
-        // This prevents read-write-read conflicts with getBoundingClientRect
+        // Process positions after DOM rendering
         requestAnimationFrame(() => {
-            // First, process individual item boundary adjustments
             processPendingItemPositions();
-            // Skip collision detection for large numbers of fixtures to avoid layout thrashing
-            // O(n²) algorithm becomes expensive with 50+ items during CSS animations
-            if (points.length < 50) {
+            if (points.length < 300) {
                 adjustItemListPositions(5, 5);
             }
         });
@@ -453,6 +472,9 @@ function parseAndMarkPoints() {
 
         // Update item summary
         updateItemSummary();
+
+        // Save current points for dirty region detection in next render
+        lastRenderedPoints = points.map(p => ({ location: [...p.location] }));
     } catch (error) {
         logger("Error marking points: " + error.message);
     }
@@ -472,7 +494,55 @@ function doContainsRareItem(reward, isSuperRare = false) {
     return false;
 }
 
-function markPoint(point) {
+// Calculate dirty regions by comparing current points with previous render
+function calculateDirtyRegions(newPoints) {
+    dirtyRegions.length = 0;
+    const radius = 30; // Radius around each point to redraw
+
+    // Mark regions for points that changed
+    newPoints.forEach((point, idx) => {
+        const lastPoint = lastRenderedPoints[idx];
+        if (!lastPoint || lastPoint.location[0] !== point.location[0] || lastPoint.location[1] !== point.location[1]) {
+            // Point position changed, mark for redraw
+            const displayGridWidth = parseFloat(physicalWidthInput.value) * (image.clientWidth / image.naturalWidth);
+            const offsetX = parseFloat(offsetXInput.value);
+            const offsetY = parseFloat(offsetYInput.value);
+            const originX = canvas.width / 2 + offsetX;
+            const originY = canvas.height / 2 + offsetY;
+
+            const [x, y] = point.location;
+            const displayX = xDirection === 'x+' ? originX + x * displayGridWidth : originX - x * displayGridWidth;
+            const displayY = yDirection === 'y+' ? originY + y * displayGridWidth : originY - y * displayGridWidth;
+
+            dirtyRegions.push({
+                x: Math.max(0, displayX - radius),
+                y: Math.max(0, displayY - radius),
+                width: radius * 2,
+                height: radius * 2
+            });
+        }
+    });
+
+    // If no dirty regions but point count changed, full redraw
+    if (dirtyRegions.length === 0 && newPoints.length !== lastRenderedPoints.length) {
+        return false; // Signal full redraw needed
+    }
+
+    return true; // Partial redraw
+}
+
+// Clear only dirty regions instead of entire canvas
+function clearDirtyRegions() {
+    if (!isDirtyCanvasEnabled || dirtyRegions.length === 0) {
+        return;
+    }
+
+    dirtyRegions.forEach(region => {
+        ctx.clearRect(region.x, region.y, region.width, region.height);
+    });
+}
+
+function markPoint(point, fragment) {
     const [x, y] = point.location;
     const offsetX = parseFloat(offsetXInput.value);
     const offsetY = parseFloat(offsetYInput.value);
@@ -508,7 +578,7 @@ function markPoint(point) {
     if (color) {
         const containsRareItem = doContainsRareItem(point.reward);
 
-        // Outer glow layer - unified bright glow effect for all harvest points
+        // Draw outer glow
         const outerRadius = 11;
         const gradient = ctx.createRadialGradient(displayX, displayY, 0, displayX, displayY, outerRadius);
         gradient.addColorStop(0, 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' + parseInt(color.slice(5, 7), 16) + ',0.5)');
@@ -519,14 +589,14 @@ function markPoint(point) {
         ctx.arc(displayX, displayY, outerRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner core - solid point (larger)
+        // Draw inner core
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(displayX, displayY, 6.5, 0, Math.PI * 2);
         ctx.fill();
 
         ifContainRareItem = containsRareItem;
-        displayReward(point.reward, displayX + displayGridWidth * 0.6, displayY + displayGridWidth * 0.4, ifContainRareItem);
+        displayReward(point.reward, displayX + displayGridWidth * 0.6, displayY + displayGridWidth * 0.4, ifContainRareItem, fragment);
 
     } else {
         ctx.fillStyle = 'black';
@@ -535,7 +605,7 @@ function markPoint(point) {
     }
 }
 
-function displayReward(reward, x, y, ifContainRareItem) {
+function displayReward(reward, x, y, ifContainRareItem, fragment) {
     const itemList = document.createElement('div');
     itemList.className = 'item-list';
 
@@ -565,19 +635,9 @@ function displayReward(reward, x, y, ifContainRareItem) {
             }
 
             itemImage.style.cursor = 'pointer';
-            itemImage.onmouseover = (e) => {
-                showItemPreview(itemImage.src, `${category} #${itemId}`, e.clientX, e.clientY);
-            };
-            itemImage.onmousemove = (e) => {
-                const preview = itemPreview;
-                if (preview && preview.classList.contains('active')) {
-                    preview.style.left = (e.clientX + 15) + 'px';
-                    preview.style.top = (e.clientY + 15) + 'px';
-                }
-            };
-            itemImage.onmouseout = () => {
-                hideItemPreview();
-            };
+            // Store data attributes for event delegation
+            itemImage.dataset.category = category;
+            itemImage.dataset.itemId = itemId;
 
             const quantityBadge = document.createElement('span');
             quantityBadge.className = 'quantity';
@@ -607,8 +667,12 @@ function displayReward(reward, x, y, ifContainRareItem) {
         }
     }
 
-    const imageContainer = document.querySelector('.image-container');
-    imageContainer.appendChild(itemList);
+    // Add to fragment for batch DOM insertion
+    if (fragment) {
+        fragment.appendChild(itemList);
+    } else {
+        document.querySelector('.image-container').appendChild(itemList);
+    }
 
     // Add hover effect to bring card to front when hovered
     itemList.onmouseover = () => {
@@ -618,7 +682,7 @@ function displayReward(reward, x, y, ifContainRareItem) {
         itemList.style.zIndex = 1;
     };
 
-    // Queue position adjustment instead of using setTimeout to avoid event queue congestion
+    // Queue position adjustments for batch processing
     pendingItemPositions.push({ itemList, x, y });
 }
 
@@ -629,8 +693,7 @@ function processPendingItemPositions() {
     const containerWidth = imageContainer.offsetWidth;
     const containerHeight = imageContainer.offsetHeight;
 
-    // Process all pending positions in one batch using transform for better performance
-    // transform only requires compositing, not layout recalculation
+    // Process positions in batch using transform for performance
     pendingItemPositions.forEach(({ itemList, x, y }) => {
         const itemRect = itemList.getBoundingClientRect();
         let finalLeft = x;
@@ -639,54 +702,35 @@ function processPendingItemPositions() {
         const itemHeight = itemRect.height;
         const margin = 5;
 
-        // Check if exceeds right boundary
+        // Boundary checks
         if (x + itemWidth + margin > containerWidth) {
             finalLeft = Math.max(0, containerWidth - itemWidth - margin);
         }
-
-        // Check if exceeds bottom boundary
         if (y + itemHeight + margin > containerHeight) {
             finalTop = Math.max(0, containerHeight - itemHeight - margin);
         }
+        if (finalTop < 0) finalTop = margin;
+        if (finalLeft < 0) finalLeft = margin;
 
-        // Check if exceeds top boundary
-        if (finalTop < 0) {
-            finalTop = margin;
-        }
-
-        // Check if exceeds left boundary
-        if (finalLeft < 0) {
-            finalLeft = margin;
-        }
-
-        if (reverseXY) {
-            // Use transform instead of left/top for better compositing performance
-            itemList.style.left = `0px`;
-            itemList.style.top = `0px`;
-            itemList.style.transform = `translate(${finalLeft}px, ${finalTop - 10}px)`;
-        } else {
-            // Use transform instead of left/top for better compositing performance
-            itemList.style.left = `0px`;
-            itemList.style.top = `0px`;
-            itemList.style.transform = `translate(${finalLeft}px, ${finalTop}px)`;
-        }
+        // Use transform for compositing performance
+        itemList.style.left = `0px`;
+        itemList.style.top = `0px`;
+        const translateY = reverseXY ? finalTop - 10 : finalTop;
+        itemList.style.transform = `translate(${finalLeft}px, ${translateY}px)`;
     });
 
     pendingItemPositions = [];
 }
 
-// Build spatial grid for efficient collision detection (uses cached rects)
+// Build spatial grid for collision detection
 function buildSpatialGrid(cachedRects, gridSize = 220) {
     const grid = {};
-
     cachedRects.forEach((rect, idx) => {
-        // Calculate which grid cells this item overlaps
         const minCellX = Math.floor(rect.left / gridSize);
         const maxCellX = Math.floor(rect.right / gridSize);
         const minCellY = Math.floor(rect.top / gridSize);
         const maxCellY = Math.floor(rect.bottom / gridSize);
 
-        // Add item to all overlapping grid cells
         for (let x = minCellX; x <= maxCellX; x++) {
             for (let y = minCellY; y <= maxCellY; y++) {
                 const key = `${x},${y}`;
@@ -695,29 +739,24 @@ function buildSpatialGrid(cachedRects, gridSize = 220) {
             }
         }
     });
-
     return grid;
 }
 
-// Resolve collision between two item lists (uses cached rects)
+// Resolve collision between two item lists
 function resolveItemCollision(itemList2, rect1, rect2, maxLapWidth, maxLapHeight) {
-    // Check for overlaps exceeding threshold
     const overlapWidth = Math.min(rect1.right, rect2.right) - Math.max(rect1.left, rect2.left);
     const overlapHeight = Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top, rect2.top);
 
     if (overlapWidth > 0 && overlapHeight > 0 && (overlapWidth > maxLapWidth || overlapHeight > maxLapHeight)) {
-        // Extract current transform translate values
         const transform = itemList2.style.transform;
         const translateMatch = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
         const currentX = translateMatch ? parseFloat(translateMatch[1]) : 0;
         const currentY = translateMatch ? parseFloat(translateMatch[2]) : 0;
 
         if (reverseXY) {
-            const newY = currentY - overlapHeight / 1.25;
-            itemList2.style.transform = `translate(${currentX}px, ${newY}px)`;
+            itemList2.style.transform = `translate(${currentX}px, ${currentY - overlapHeight / 1.25}px)`;
         } else {
-            const newX = currentX - overlapWidth / 1.25;
-            itemList2.style.transform = `translate(${newX}px, ${currentY}px)`;
+            itemList2.style.transform = `translate(${currentX - overlapWidth / 1.25}px, ${currentY}px)`;
         }
     }
 }
@@ -800,7 +839,11 @@ function changeFilterMode() {
         customCheckboxes.style.display = 'none';
     }
 
-    parseAndMarkPoints();
+    // Debounce filter changes to avoid multiple redraws during rapid filter toggles
+    clearTimeout(filterDebounceTimer);
+    filterDebounceTimer = setTimeout(() => {
+        parseAndMarkPoints();
+    }, FILTER_DEBOUNCE_DELAY);
 }
 
 function initializeItemCheckboxes() {
@@ -832,7 +875,11 @@ function initializeItemCheckboxes() {
             } else {
                 selectedItems.delete(e.target.value);
             }
-            parseAndMarkPoints();
+            // Debounce checkbox changes to batch multiple selections into one redraw
+            clearTimeout(filterDebounceTimer);
+            filterDebounceTimer = setTimeout(() => {
+                parseAndMarkPoints();
+            }, FILTER_DEBOUNCE_DELAY);
         };
 
         const label = document.createElement('label');
@@ -1015,6 +1062,10 @@ function processJsonFile(content, fileName) {
             closeDropZoneModal();
             showDataLoadedIndicator(fileName);
             dataLoadedFromFile = true;
+
+            // Start background preload of all textures after data is loaded
+            preloadAllTexturesInBackground();
+
             return true;
         } catch (error) {
             logger('Error processing extracted data: ' + error.message);
@@ -1092,6 +1143,142 @@ function initializeDropZone() {
     document.addEventListener('drop', (e) => {
         e.preventDefault();
     });
+}
+
+// ============================================
+// 🎨 Texture Preloading System
+// ============================================
+
+// Global state for texture preloading
+const texturePreloadState = {
+    allTexturesLoaded: new Set(),
+    sceneTexturesLoaded: {},
+    isPreloading: false,
+    preloadStartTime: null
+};
+
+// Collect all texture paths for a specific scene
+function getSceneTextures(sceneKey) {
+    const sceneNameMap = {
+        'scene1': 'さいしょの原っぱ',
+        'scene2': '彩りの花畑',
+        'scene3': '願いの砂浜',
+        'scene4': '忘れ去られた場所'
+    };
+
+    const sceneName = sceneNameMap[sceneKey];
+    const points = harvestData[sceneName] || [];
+    const textures = new Set();
+
+    // Collect textures from all fixtures in this scene
+    points.forEach(point => {
+        for (const category in point.reward) {
+            if (!point.reward.hasOwnProperty(category)) continue;
+            for (const itemId in point.reward[category]) {
+                if (!point.reward[category].hasOwnProperty(itemId)) continue;
+
+                const texture = ITEM_TEXTURES[category]?.[itemId];
+                if (texture) {
+                    textures.add(texture);
+                }
+            }
+        }
+    });
+
+    return Array.from(textures);
+}
+
+// Preload a batch of textures
+async function preloadTexturesBatch(texturePaths) {
+    if (texturePaths.length === 0) return;
+
+    return Promise.all(
+        texturePaths.map(texturePath => {
+            return new Promise((resolve) => {
+                // Check if already loaded
+                if (texturePreloadState.allTexturesLoaded.has(texturePath)) {
+                    resolve();
+                    return;
+                }
+
+                const img = new Image();
+                img.onload = () => {
+                    texturePreloadState.allTexturesLoaded.add(texturePath);
+                    resolve();
+                };
+                img.onerror = () => {
+                    // Still mark as attempted, but don't block
+                    texturePreloadState.allTexturesLoaded.add(texturePath);
+                    logger(`⚠️ Failed to preload: ${texturePath}`);
+                    resolve();
+                };
+                img.src = texturePath;
+            });
+        })
+    );
+}
+
+// Preload textures for a specific scene (with priority)
+async function preloadSceneTextures(sceneKey) {
+    if (!harvestData || Object.keys(harvestData).length === 0) {
+        return;
+    }
+
+    const sceneNameMap = {
+        'scene1': 'Scene 1 (さいしょの原っぱ)',
+        'scene2': 'Scene 2 (彩りの花畑)',
+        'scene3': 'Scene 3 (願いの砂浜)',
+        'scene4': 'Scene 4 (忘れ去られた場所)'
+    };
+
+    const textures = getSceneTextures(sceneKey);
+    const remaining = textures.filter(t => !texturePreloadState.allTexturesLoaded.has(t));
+
+    if (remaining.length > 0) {
+        logger(`🔄 Preloading ${remaining.length} textures for ${sceneNameMap[sceneKey]}...`);
+        await preloadTexturesBatch(remaining);
+        texturePreloadState.sceneTexturesLoaded[sceneKey] = true;
+        logger(`✅ ${sceneNameMap[sceneKey]} textures ready`);
+    }
+}
+
+// Preload all textures in background (called after data is loaded)
+async function preloadAllTexturesInBackground() {
+    if (!harvestData || Object.keys(harvestData).length === 0) {
+        return;
+    }
+
+    if (texturePreloadState.isPreloading) {
+        return; // Already preloading
+    }
+
+    texturePreloadState.isPreloading = true;
+    texturePreloadState.preloadStartTime = Date.now();
+
+    // Get all unique textures across all scenes
+    const allTextures = new Set();
+    for (const category in ITEM_TEXTURES) {
+        for (const itemId in ITEM_TEXTURES[category]) {
+            const texture = ITEM_TEXTURES[category][itemId];
+            allTextures.add(texture);
+        }
+    }
+
+    const textureList = Array.from(allTextures);
+
+    // Preload in batches with delays to avoid blocking UI
+    const batchSize = 15;
+
+    for (let i = 0; i < textureList.length; i += batchSize) {
+        const batch = textureList.slice(i, i + batchSize);
+        await preloadTexturesBatch(batch);
+
+        // Small delay between batches to avoid blocking UI
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    logger(`✨ Background textures ready`);
+    texturePreloadState.isPreloading = false;
 }
 
 // Calculate and display item summary for current scene
@@ -1177,6 +1364,38 @@ function updateItemSummary() {
     summaryContainer.innerHTML = html;
 }
 
+// Initialize delegated event listeners for item preview tooltips
+function initializeImagePreviewDelegation() {
+    const imageContainer = document.querySelector('.image-container');
+
+    // Single delegated listener for mouseover events
+    imageContainer.addEventListener('mouseover', (e) => {
+        if (e.target.tagName === 'IMG' && e.target.dataset.category) {
+            const category = e.target.dataset.category;
+            const itemId = e.target.dataset.itemId;
+            showItemPreview(e.target.src, `${category} #${itemId}`, e.clientX, e.clientY);
+        }
+    });
+
+    // Single delegated listener for mousemove events
+    imageContainer.addEventListener('mousemove', (e) => {
+        if (e.target.tagName === 'IMG' && e.target.dataset.category) {
+            const preview = itemPreview;
+            if (preview && preview.classList.contains('active')) {
+                preview.style.left = (e.clientX + 15) + 'px';
+                preview.style.top = (e.clientY + 15) + 'px';
+            }
+        }
+    });
+
+    // Single delegated listener for mouseout events
+    imageContainer.addEventListener('mouseout', (e) => {
+        if (e.target.tagName === 'IMG' && e.target.dataset.category) {
+            hideItemPreview();
+        }
+    });
+}
+
 // Initialize on page load
 window.addEventListener('load', () => {
     // Initialize DOM element references
@@ -1190,6 +1409,7 @@ window.addEventListener('load', () => {
     logger('Page loaded. Please load a data file to continue.');
     initializeSidebar();
     initializeDropZone();
+    initializeImagePreviewDelegation();
 
     // Wait for image loading before initializing canvas
     if (image.complete) {
