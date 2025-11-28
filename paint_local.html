@@ -6,13 +6,15 @@
     <title>Project SEKAI - MySekai Xray</title>
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    <script src="js/config.js"></script>
+    <!-- Modular architecture: config, state, dataParser, canvas, filters, ui -->
+    <!-- config.js is now imported as an ES6 module from ui.js -->
+    <script type="module" src="js/ui.js?v=3.0"></script>
 </head>
 <body>
     <!-- Drop Zone Modal -->
     <div class="drop-zone-backdrop hidden" id="dropZoneBackdrop">
         <div class="drop-zone" id="dropZone">
-            <button class="drop-zone-close" onclick="closeDropZoneModal()">✕</button>
+            <button class="drop-zone-close" onclick="window.closeDropZoneModal?.()">✕</button>
             <div class="drop-zone-content">
                 <div class="drop-icon">📁</div>
                 <h2>Load Data File</h2>
@@ -26,8 +28,8 @@
     </div>
     <input type="file" id="hiddenFileInput" />
 
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-    <div class="sidebar-overlay" onclick="closeSidebar()" id="sidebarOverlay"></div>
+    <button class="menu-toggle" onclick="window.toggleSidebar?.()">☰</button>
+    <div class="sidebar-overlay" onclick="window.closeSidebar?.()" id="sidebarOverlay"></div>
 
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -49,28 +51,28 @@
 
     <div class="controls">
         <div class="scene-buttons">
-            <button onclick="selectScene('scene1')" data-scene="scene1">さいしょの原っぱ</button>
-            <button onclick="selectScene('scene2')" data-scene="scene2">彩りの花畑</button>
-            <button onclick="selectScene('scene3')" data-scene="scene3">願いの砂浜</button>
-            <button onclick="selectScene('scene4')" data-scene="scene4">忘れ去られた場所</button>
+            <button onclick="window.selectScene?.('scene1')" data-scene="scene1">さいしょの原っぱ</button>
+            <button onclick="window.selectScene?.('scene2')" data-scene="scene2">彩りの花畑</button>
+            <button onclick="window.selectScene?.('scene3')" data-scene="scene3">願いの砂浜</button>
+            <button onclick="window.selectScene?.('scene4')" data-scene="scene4">忘れ去られた場所</button>
         </div>
         <br>
-        <button class="filter-button" onclick="openDropZoneModal()">📤 Load Data File</button>
-        <button class="filter-button" onclick="toggleFilterPanel()">🔍 Filter Items</button>
+        <button class="filter-button" onclick="window.openDropZoneModal?.()">📤 Load Data File</button>
+        <button class="filter-button" onclick="window.toggleFilterPanel?.()">🔍 Filter Items</button>
 
 
         <div class="filter-panel" id="filterPanel">
             <div class="filter-options">
                 <div class="filter-option">
-                    <input type="radio" id="filterAll" name="filterMode" value="all" checked onchange="changeFilterMode()">
+                    <input type="radio" id="filterAll" name="filterMode" value="all" checked onchange="window.changeFilterMode?.()">
                     <label for="filterAll">Show All Items</label>
                 </div>
                 <div class="filter-option">
-                    <input type="radio" id="filterRare" name="filterMode" value="rare" onchange="changeFilterMode()">
+                    <input type="radio" id="filterRare" name="filterMode" value="rare" onchange="window.changeFilterMode?.()">
                     <label for="filterRare">Show Rare Items Only</label>
                 </div>
                 <div class="filter-option">
-                    <input type="radio" id="filterCustom" name="filterMode" value="custom" onchange="changeFilterMode()">
+                    <input type="radio" id="filterCustom" name="filterMode" value="custom" onchange="window.changeFilterMode?.()">
                     <label for="filterCustom">Show Custom Selected Items</label>
                 </div>
             </div>
@@ -87,18 +89,16 @@
             <input type="number" id="offsetX" value="0" step="1">
             <label for="offsetY">Y Offset(px):</label>
             <input type="number" id="offsetY" value="0" step="1">
-            <button onclick="drawGrid()">Draw Grid</button>
-            <button onclick="clearGrid()">Clear Canvas</button>
+            <button onclick="window.drawGrid?.()">Draw Grid</button>
+            <button onclick="window.clearGrid?.()">Clear Canvas</button>
             <br>
             <div class="direction-buttons">
-                <button onclick="setDirection('x+', 'y+')">X+ Y+</button>
-                <button onclick="setDirection('x+', 'y-')">X+ Y-</button>
-                <button onclick="setDirection('x-', 'y+')">X- Y+</button>
-                <button onclick="setDirection('x-', 'y-')">X- Y-</button>
+                <button onclick="window.setDirection?.('x+', 'y+')">X+ Y+</button>
+                <button onclick="window.setDirection?.('x+', 'y-')">X+ Y-</button>
+                <button onclick="window.setDirection?.('x-', 'y+')">X- Y+</button>
+                <button onclick="window.setDirection?.('x-', 'y-')">X- Y-</button>
             </div>
         </details>
     </div>
-
-    <script src="js/app.js"></script>
 </body>
 </html>

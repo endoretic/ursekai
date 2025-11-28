@@ -1,5 +1,5 @@
 // Scene configuration - per-scene coordinate transformation parameters
-const SCENES = {
+export const SCENES = {
     scene1: {
         physicalWidth: 33.333,
         offsetX: 0,
@@ -39,7 +39,7 @@ const SCENES = {
 };
 
 // Fixture color mapping for different fixture types
-const FIXTURE_COLORS = {
+export const FIXTURE_COLORS = {
     112:  '#f9f9f9',
 
     1001: '#8B6F47', // wood
@@ -91,7 +91,7 @@ const FIXTURE_COLORS = {
 };
 
 // Item texture mapping - maps item IDs to their texture asset paths
-const ITEM_TEXTURES = {
+export const ITEM_TEXTURES = {
     mysekai_material: {
         "1": "./icon/Texture2D/item_wood_1.png",
         "2": "./icon/Texture2D/item_wood_2.png",
@@ -124,10 +124,10 @@ const ITEM_TEXTURES = {
         "62": "./icon/Texture2D/item_junk_11.png",
         "63": "./icon/Texture2D/item_junk_12.png",
         "64": "./icon/Texture2D/item_mineral_9.png",
-        "65": "./icon/Texture2D/item_mineral_10.png",
+        "65": "./icon/Texture2D/item_mineral_10.png"
     },
     mysekai_item: {
-        "7": "./icon/Texture2D/item_blueprint_fragment.png",
+        "7": "./icon/Texture2D/item_blueprint_fragment.png"
     },
     mysekai_fixture: {
         "118": "./icon/Texture2D/mdl_non1001_before_sapling1_118.png",
@@ -156,23 +156,23 @@ const ITEM_TEXTURES = {
 };
 
 // Rare item rarity tier definitions
-const RARE_ITEM = {
-    mysekai_material: [5,12,20, 24, 32, 33, 61, 62, 63, 64, 65],
+export const RARE_ITEM = {
+    mysekai_material: [5, 12, 20, 24, 32, 33, 61, 62, 63, 64, 65],
     mysekai_item: [7],
     mysekai_music_record: [],
-    mysekai_fixture: [118,119,120,121]
+    mysekai_fixture: [118, 119, 120, 121]
 };
 
 // Super rare item definitions (highest rarity tier)
-const SUPER_RARE_ITEM = {
-    mysekai_material: [5,12,20,24],
+export const SUPER_RARE_ITEM = {
+    mysekai_material: [5, 12, 20, 24],
     mysekai_item: [],
     mysekai_fixture: [],
     mysekai_music_record: []
 };
 
 // Scene ID mapping for display names
-const SITE_ID_MAP = {
+export const SITE_ID_MAP = {
     1: "マイホーム",
     2: "1F",
     3: "2F",
@@ -180,5 +180,5 @@ const SITE_ID_MAP = {
     5: "さいしょの原っぱ",
     6: "願いの砂浜",
     7: "彩りの花畑",
-    8: "忘れ去られた場所",
+    8: "忘れ去られた場所"
 };
