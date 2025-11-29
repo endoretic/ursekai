@@ -4,10 +4,11 @@
  */
 
 import { SCENES, FIXTURE_COLORS, ITEM_TEXTURES, RARE_ITEM, SUPER_RARE_ITEM, SITE_ID_MAP } from './config.js';
-import { canvasState, sceneState, domElements, canvasOptimizationState, filterState, texturePreloadState } from './state.js';
+import { canvasState, sceneState, domElements, canvasOptimizationState, filterState, texturePreloadState, displayModeState } from './state.js';
 import { initCanvas, drawGrid, markPoint, displayReward, processPendingItemPositions, adjustItemListPositions, clearItemLists, clearDirtyRegions, calculateDirtyRegions, clearGrid, aggregatePoints } from './canvas.js';
 import { changeFilterMode, toggleFilterPanel, doContainsRareItem, shouldShowItem, setFilterChangeCallback } from './filters.js';
 import { handleFileUpload, processJsonFile } from './dataParser.js';
+import { initializeDragInteraction, setCurrentScene, refreshOverlayCanvas } from './dragInteraction.js';
 
 /**
  * Log messages to UI
@@ -73,27 +74,29 @@ export function parseAndMarkPoints() {
         }
 
         // Aggregate similar nearby points
-        const aggregatedPoints = aggregatePoints(points);
+        const aggregationResult = aggregatePoints(points);
+        const displayPoints = aggregationResult.displayPoints || aggregationResult;  // Support both old and new formats
+        const cardPoints = aggregationResult.cardPoints || aggregationResult;
 
         // Batch DOM insertions using DocumentFragment
         const fragment = document.createDocumentFragment();
         if (!canvasState.reverseXY) {
-            aggregatedPoints.forEach(point => markPoint(point, fragment));
+            displayPoints.forEach(point => markPoint(point, fragment));
         } else {
-            aggregatedPoints.forEach(point => markPoint({location: [point.location[1], point.location[0]], fixtureId: point.fixtureId, reward: point.reward, isAggregated: point.isAggregated, aggregatedCount: point.aggregatedCount}, fragment));
+            displayPoints.forEach(point => markPoint({location: [point.location[1], point.location[0]], fixtureId: point.fixtureId, reward: point.reward, isAggregated: point.isAggregated, aggregatedCount: point.aggregatedCount, aggregationKey: point.aggregationKey, aggregatedIndices: point.aggregatedIndices, isAggregationLeader: point.isAggregationLeader}, fragment));
         }
         document.querySelector('.image-container').appendChild(fragment);
 
         // Process positions after DOM rendering
         requestAnimationFrame(() => {
             processPendingItemPositions();
-            if (aggregatedPoints.length < 300) {
+            if (displayPoints.length < 300) {
                 adjustItemListPositions(5, 5);
             }
         });
 
-        const aggregatedCount = aggregatedPoints.filter(p => p.isAggregated).length;
-        logger(`Marked ${points.length} fixtures (${aggregatedCount} aggregated into ${points.length - aggregatedCount} groups)`);
+        const aggregatedCount = cardPoints.filter(p => p.isAggregated).length;
+        logger(`Marked ${points.length} fixtures (${aggregatedCount} aggregated into ${cardPoints.length} cards)`);
 
         // Update item summary
         updateItemSummary();
@@ -161,6 +164,9 @@ export function selectScene(sceneKey) {
         canvasState.yDirection = selectedScene.yDirection;
         canvasState.reverseXY = selectedScene.reverseXY;
 
+        // Update drag interaction with current scene
+        setCurrentScene(sceneKey);
+
         logger(`Scene changed: ${sceneKey}`);
 
         // Set image path and wait for loading to complete
@@ -174,6 +180,7 @@ export function selectScene(sceneKey) {
                 requestAnimationFrame(() => {
                     initCanvas();
                     parseAndMarkPoints();
+                    refreshOverlayCanvas();
 
                     // Preload textures for current scene (priority loading)
                     preloadSceneTextures(sceneKey);
@@ -652,13 +659,21 @@ export function initializeUI() {
     domElements.offsetYInput = document.getElementById('offsetY');
     domElements.ctx = domElements.canvas.getContext('2d');
 
+    // Initialize display mode state (load from localStorage or use default 'all')
+    displayModeState.init();
+
     // Set up callback for filter changes
     setFilterChangeCallback(parseAndMarkPoints);
 
     logger('Page loaded. Please load a data file to continue.');
     initializeSidebar();
+
+    // Update display mode button UI AFTER sidebar is initialized
+    updateDisplayModeButtonUI();
+
     initializeDropZone();
     initializeImagePreviewDelegation();
+    initializeDragInteraction();
 
     // Initialize first scene (this will load image and set up canvas)
     selectScene('scene1');
@@ -669,6 +684,39 @@ export function initializeUI() {
 
 // Window resize handler
 let resizeTimeout;
+/**
+ * Update display mode button UI to reflect current mode
+ */
+function updateDisplayModeButtonUI() {
+    const allBtn = document.getElementById('modeAllBtn');
+    const aggBtn = document.getElementById('modeAggregatedBtn');
+    if (!allBtn || !aggBtn) return;
+
+    if (displayModeState.mode === 'all') {
+        allBtn.classList.add('active');
+        aggBtn.classList.remove('active');
+    } else {
+        allBtn.classList.remove('active');
+        aggBtn.classList.add('active');
+    }
+}
+
+/**
+ * Change display mode between 'all' (individual cards) and 'aggregated' (grouped cards)
+ */
+export function setDisplayMode(mode) {
+    if (mode === 'all' || mode === 'aggregated') {
+        displayModeState.setMode(mode);
+
+        // Update button UI
+        updateDisplayModeButtonUI();
+
+        // Re-render with new display mode
+        parseAndMarkPoints();
+        logger(`Display mode changed to: ${mode === 'all' ? 'All Cards' : 'Aggregated (β)'}`);
+    }
+}
+
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     // Delay increased to 400ms to avoid conflicts with sidebar CSS animations (0.3s)
@@ -693,6 +741,8 @@ window.toggleSidebar = toggleSidebar;
 window.closeSidebar = closeSidebar;
 window.openDropZoneModal = openDropZoneModal;
 window.closeDropZoneModal = closeDropZoneModal;
+window.setDisplayMode = setDisplayMode;
+window.displayModeState = displayModeState;
 
 // Note: initializeUI, changeFilterMode, and toggleFilterPanel are already exported
 // as named exports via 'export function' declarations above

@@ -4,7 +4,7 @@
  */
 
 import { FIXTURE_COLORS, ITEM_TEXTURES, RARE_ITEM, SUPER_RARE_ITEM } from './config.js';
-import { domElements, canvasState, domLayoutState, canvasOptimizationState, aggregationState } from './state.js';
+import { domElements, canvasState, domLayoutState, canvasOptimizationState, aggregationState, dragState, displayModeState } from './state.js';
 import { shouldShowItem } from './filters.js';
 
 /**
@@ -55,13 +55,26 @@ export function aggregatePoints(points) {
     aggregationState.aggregatedPoints = {};
     aggregationState.pointToAggregationKey = {};
 
-    if (!aggregationState.enabled || !points || points.length === 0) {
-        return points ? points.map((p, i) => ({ ...p, aggregationKey: 'single_' + i, aggregatedCount: 1 })) : [];
+    if (!points || points.length === 0) {
+        return {
+            displayPoints: [],
+            cardPoints: []
+        };
+    }
+
+    // If display mode is 'all' or aggregation is disabled, show all points as individual cards
+    if (!aggregationState.enabled || displayModeState.mode === 'all') {
+        const singlePoints = points.map((p, i) => ({ ...p, aggregationKey: 'single_' + i, aggregatedCount: 1, isAggregated: false, isAggregationLeader: true }));
+        return {
+            displayPoints: singlePoints,      // All points for drawing on canvas
+            cardPoints: singlePoints           // Points for generating cards (each point gets its own card)
+        };
     }
 
     const threshold = aggregationState.distanceThreshold;
     const processed = new Set();
     const aggregatedList = [];
+    const groupMap = {};  // Maps index to group info
     let groupCounter = 0;
     let aggregatedCount = 0;
 
@@ -96,6 +109,7 @@ export function aggregatePoints(points) {
             aggregationState.aggregatedPoints[groupKey] = aggregated;
             group.forEach(idx => {
                 aggregationState.pointToAggregationKey[idx] = groupKey;
+                groupMap[idx] = { key: groupKey, isLeader: idx === group[0], indices: group };
             });
             if (aggregationState.debugMode) {
                 console.log('Aggregated group ' + groupKey + ': ' + group.length + ' points at location (' + points[i].location[0] + ',' + points[i].location[1] + ')');
@@ -110,14 +124,31 @@ export function aggregatePoints(points) {
             };
             aggregatedList.push(single);
             aggregationState.pointToAggregationKey[i] = 'single_' + i;
+            groupMap[i] = { key: 'single_' + i, isLeader: true, indices: [i] };
         }
     }
 
+    // Create display points (all points) with aggregation info
+    const displayPoints = points.map((point, idx) => {
+        const groupInfo = groupMap[idx];
+        return {
+            ...point,
+            aggregationKey: groupInfo.key,
+            aggregatedCount: groupInfo.indices.length,
+            aggregatedIndices: groupInfo.indices,
+            isAggregated: groupInfo.indices.length > 1,
+            isAggregationLeader: groupInfo.isLeader
+        };
+    });
+
     if (aggregationState.debugMode) {
-        console.log('Aggregation complete: ' + points.length + ' points -> ' + aggregatedList.length + ' groups (' + aggregatedCount + ' aggregated)');
+        console.log('Aggregation complete: ' + points.length + ' points (all shown, ' + aggregatedCount + ' aggregated into ' + aggregatedList.length + ' groups)');
     }
 
-    return aggregatedList;
+    return {
+        displayPoints: displayPoints,  // All points for drawing on canvas
+        cardPoints: aggregatedList      // Aggregated points for generating cards
+    };
 }
 
 /**
@@ -126,6 +157,28 @@ export function aggregatePoints(points) {
 export function initCanvas() {
     domElements.canvas.width = domElements.image.clientWidth;
     domElements.canvas.height = domElements.image.clientHeight;
+    updatePageZoomLevel();
+}
+
+/**
+ * Update page zoom level based on canvas display vs internal size ratio
+ */
+export function updatePageZoomLevel() {
+    const imageContainer = document.querySelector('.image-container');
+    if (!imageContainer || domElements.canvas.width === 0) {
+        domLayoutState.pageZoomLevel = 1.0;
+        return;
+    }
+
+    // Calculate zoom level by comparing CSS display size to canvas internal size
+    const displayWidth = imageContainer.offsetWidth;
+    const internalWidth = domElements.canvas.width;
+
+    if (internalWidth > 0 && displayWidth > 0) {
+        domLayoutState.pageZoomLevel = displayWidth / internalWidth;
+    } else {
+        domLayoutState.pageZoomLevel = 1.0;
+    }
 }
 
 /**
@@ -259,6 +312,10 @@ export function clearDirtyRegions() {
  * Mark a single point on canvas with item rewards
  */
 export function markPoint(point, fragment) {
+    // Check if this is an aggregated point that should be hidden during drag
+    const shouldHidePointMarker = dragState.hiddenOriginalPointIndices.length > 0 && point.isAggregated && point.aggregatedIndices &&
+                                   point.aggregatedIndices.some(idx => dragState.hiddenOriginalPointIndices.includes(idx));
+
     const [x, y] = point.location;
     const offsetX = parseFloat(domElements.offsetXInput.value);
     const offsetY = parseFloat(domElements.offsetYInput.value);
@@ -293,9 +350,9 @@ export function markPoint(point, fragment) {
     const aggregatedCount = point.aggregatedCount || 1;
 
     let ifContainRareItem = false;
-    if (color) {
-        const containsRareItem = doContainsRareItem(point.reward);
 
+    // Only draw point marker if not hidden during drag
+    if (color && !shouldHidePointMarker) {
         // Draw outer glow - same style for all points
         const outerRadius = 11;
         const baseOpacity = 0.5;  // Aggregated and non-aggregated points use same opacity
@@ -314,16 +371,21 @@ export function markPoint(point, fragment) {
         domElements.ctx.arc(displayX, displayY, 6.5, 0, Math.PI * 2);
         domElements.ctx.fill();
 
-        // Note: Aggregation count indicator removed from canvas marker
-        // Reason: Item quantities in cards already show the multiplied count
-
-        ifContainRareItem = containsRareItem;
-        displayReward(point.reward, displayX + displayGridWidth * 0.6, displayY + displayGridWidth * 0.4, ifContainRareItem, fragment, isAggregated, aggregatedCount);
-
-    } else {
+        ifContainRareItem = doContainsRareItem(point.reward);
+    } else if (color) {
+        // Point marker is hidden during drag, but still check for rare items for card styling
+        ifContainRareItem = doContainsRareItem(point.reward);
+    } else if (!shouldHidePointMarker) {
         domElements.ctx.fillStyle = 'black';
         domElements.ctx.font = '12px Arial';
         domElements.ctx.fillText('?', displayX - 3, displayY + 4);
+    }
+
+    // Display reward card only for aggregation leaders or non-aggregated points
+    // When aggregation is enabled and all points are displayed on map, only leaders should generate cards
+    const shouldDisplayCard = !point.isAggregated || point.isAggregationLeader === true;
+    if (shouldDisplayCard) {
+        displayReward(point.reward, displayX + displayGridWidth * 0.6, displayY + displayGridWidth * 0.4, ifContainRareItem, fragment, isAggregated, aggregatedCount, displayX, displayY, point);
     }
 }
 
@@ -336,9 +398,53 @@ export function markPoint(point, fragment) {
  * If this renders correctly: problem is with scaling/badges
  * If this still breaks: problem is more fundamental with aggregation
  */
-export function displayReward(reward, x, y, ifContainRareItem, fragment, isAggregated, aggregatedCount) {
+export function displayReward(reward, x, y, ifContainRareItem, fragment, isAggregated, aggregatedCount, harvestPointX, harvestPointY, pointData) {
     const itemList = document.createElement('div');
     itemList.className = 'item-list';
+    itemList.draggable = false;  // Explicitly mark as non-draggable
+
+    // Store harvest point data for drag interactions
+    itemList.dataset.harvestX = harvestPointX || 0;
+    itemList.dataset.harvestY = harvestPointY || 0;
+    itemList.dataset.isAggregated = isAggregated ? 'true' : 'false';
+    itemList.dataset.aggregatedCount = aggregatedCount || 1;
+
+    // Store fixture ID for connection line styling
+    if (pointData && pointData.fixtureId) {
+        itemList.dataset.fixtureId = pointData.fixtureId;
+    }
+
+    // Store game coordinates for dynamic coordinate recalculation during drag
+    // This ensures connection lines always use correct coordinates even after zoom/resize
+    if (pointData && pointData.location) {
+        itemList.dataset.gameX = pointData.location[0];
+        itemList.dataset.gameY = pointData.location[1];
+    }
+
+    // Store complete point data for aggregated cards and original points
+    if (pointData) {
+        itemList.dataset.pointData = JSON.stringify({
+            location: pointData.location,
+            aggregatedIndices: pointData.aggregatedIndices,
+            aggregationKey: pointData.aggregationKey,
+            isAggregated: pointData.isAggregated
+        });
+    }
+
+    itemList.style.cursor = 'grab';
+    itemList.style.userSelect = 'none';
+
+    // Prevent drag behavior on this card
+    itemList.addEventListener('dragstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+    }, true);
+    itemList.addEventListener('drag', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+    }, true);
 
     // Calculate scale factor for aggregated cards (1.0 to 1.6x)
     const scaleFactor = isAggregated && aggregatedCount > 1
@@ -474,6 +580,9 @@ export function processPendingItemPositions() {
     const imageContainer = document.querySelector('.image-container');
     if (!imageContainer) return;
 
+    // Recalculate zoom level in case page was zoomed (for potential future use)
+    updatePageZoomLevel();
+
     const containerWidth = imageContainer.offsetWidth;
     const containerHeight = imageContainer.offsetHeight;
 
@@ -494,6 +603,7 @@ export function processPendingItemPositions() {
             const itemHeight = itemList.offsetHeight;
             const margin = 5;
 
+            // Note: x/y are already in display space (from markPoint), no additional zoom adjustment needed
             let finalLeft = x;
             let finalTop = y;
 
