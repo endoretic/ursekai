@@ -423,12 +423,12 @@ export function displayReward(reward, x, y, ifContainRareItem, fragment, isAggre
     // Add small aggregation count indicator if needed
     if (isAggregated && aggregatedCount > 1) {
         const countBadge = document.createElement('div');
-        // Badge - 20px, positioned to extend outside card border
-        const badgeSize = 20;
+        // Badge - 22px, positioned to extend outside card border
+        const badgeSize = 22;
         countBadge.style.position = 'absolute';
         // Position at top-right corner, extending outside the card border
-        countBadge.style.top = '-8px';
-        countBadge.style.right = '-8px';
+        countBadge.style.top = '-9px';
+        countBadge.style.right = '-9px';
         countBadge.style.background = '#ff6b6b';
         countBadge.style.color = 'white';
         countBadge.style.borderRadius = '50%';
