@@ -58,3 +58,12 @@ export const texturePreloadState = {
     isPreloading: false,
     preloadStartTime: null,
 };
+
+// Point aggregation configuration and state
+export const aggregationState = {
+    enabled: true, // ENABLED: debugging in progress
+    distanceThreshold: 8, // Units: only aggregate points within 8 units
+    aggregatedPoints: {}, // Maps aggregated key to aggregation data
+    pointToAggregationKey: {}, // Maps original point to aggregation group key
+    debugMode: true, // Enable console logs for debugging
+};

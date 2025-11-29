@@ -4,8 +4,121 @@
  */
 
 import { FIXTURE_COLORS, ITEM_TEXTURES, RARE_ITEM, SUPER_RARE_ITEM } from './config.js';
-import { domElements, canvasState, domLayoutState, canvasOptimizationState } from './state.js';
+import { domElements, canvasState, domLayoutState, canvasOptimizationState, aggregationState } from './state.js';
 import { shouldShowItem } from './filters.js';
+
+/**
+ * Create a unique key for a reward set
+ */
+function createRewardKey(reward) {
+    const entries = [];
+    for (const category in reward) {
+        if (!reward.hasOwnProperty(category)) continue;
+        for (const itemId in reward[category]) {
+            if (!reward[category].hasOwnProperty(itemId)) continue;
+            const quantity = reward[category][itemId];
+            entries.push(category + '_' + itemId + '_' + quantity);
+        }
+    }
+    return entries.sort().join('|');
+}
+
+/**
+ * Check if two points can be aggregated (same fixture type + same rewards within threshold distance)
+ */
+function canAggregatePoints(p1, p2, threshold) {
+    // Check if rewards are identical
+    const rewardKey1 = createRewardKey(p1.reward);
+    const rewardKey2 = createRewardKey(p2.reward);
+    if (rewardKey1 !== rewardKey2) {
+        return false;
+    }
+
+    // Check if fixture types match
+    if (p1.fixtureId !== p2.fixtureId) {
+        return false;
+    }
+
+    // Calculate distance between points
+    const dx = p1.location[0] - p2.location[0];
+    const dy = p1.location[1] - p2.location[1];
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    return distance <= threshold;
+}
+
+/**
+ * Aggregate similar points within threshold distance
+ * Returns: { aggregatedPoints: [...], pointToGroupKey: {...} }
+ */
+export function aggregatePoints(points) {
+    aggregationState.aggregatedPoints = {};
+    aggregationState.pointToAggregationKey = {};
+
+    if (!aggregationState.enabled || !points || points.length === 0) {
+        return points ? points.map((p, i) => ({ ...p, aggregationKey: 'single_' + i, aggregatedCount: 1 })) : [];
+    }
+
+    const threshold = aggregationState.distanceThreshold;
+    const processed = new Set();
+    const aggregatedList = [];
+    let groupCounter = 0;
+    let aggregatedCount = 0;
+
+    for (let i = 0; i < points.length; i++) {
+        if (processed.has(i)) continue;
+
+        const groupKey = 'agg_' + groupCounter++;
+        const group = [i];
+        processed.add(i);
+
+        // Find all nearby points with same rewards
+        for (let j = i + 1; j < points.length; j++) {
+            if (processed.has(j)) continue;
+            if (canAggregatePoints(points[i], points[j], threshold)) {
+                group.push(j);
+                processed.add(j);
+            }
+        }
+
+        // Create aggregated point or single point
+        if (group.length > 1) {
+            // Multiple points - aggregate
+            aggregatedCount++;
+            const aggregated = {
+                ...points[i],
+                aggregationKey: groupKey,
+                aggregatedCount: group.length,
+                aggregatedIndices: group,
+                isAggregated: true
+            };
+            aggregatedList.push(aggregated);
+            aggregationState.aggregatedPoints[groupKey] = aggregated;
+            group.forEach(idx => {
+                aggregationState.pointToAggregationKey[idx] = groupKey;
+            });
+            if (aggregationState.debugMode) {
+                console.log('Aggregated group ' + groupKey + ': ' + group.length + ' points at location (' + points[i].location[0] + ',' + points[i].location[1] + ')');
+            }
+        } else {
+            // Single point
+            const single = {
+                ...points[i],
+                aggregationKey: 'single_' + i,
+                aggregatedCount: 1,
+                isAggregated: false
+            };
+            aggregatedList.push(single);
+            aggregationState.pointToAggregationKey[i] = 'single_' + i;
+        }
+    }
+
+    if (aggregationState.debugMode) {
+        console.log('Aggregation complete: ' + points.length + ' points -> ' + aggregatedList.length + ' groups (' + aggregatedCount + ' aggregated)');
+    }
+
+    return aggregatedList;
+}
 
 /**
  * Initialize canvas with proper dimensions
@@ -176,16 +289,19 @@ export function markPoint(point, fragment) {
     }
 
     const color = FIXTURE_COLORS[point.fixtureId];
+    const isAggregated = point.isAggregated || false;
+    const aggregatedCount = point.aggregatedCount || 1;
 
     let ifContainRareItem = false;
     if (color) {
         const containsRareItem = doContainsRareItem(point.reward);
 
-        // Draw outer glow
+        // Draw outer glow - same style for all points
         const outerRadius = 11;
+        const baseOpacity = 0.5;  // Aggregated and non-aggregated points use same opacity
         const gradient = domElements.ctx.createRadialGradient(displayX, displayY, 0, displayX, displayY, outerRadius);
-        gradient.addColorStop(0, 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' + parseInt(color.slice(5, 7), 16) + ',0.5)');
-        gradient.addColorStop(0.5, 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' + parseInt(color.slice(5, 7), 16) + ',0.25)');
+        gradient.addColorStop(0, 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' + parseInt(color.slice(5, 7), 16) + ',' + baseOpacity + ')');
+        gradient.addColorStop(0.5, 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' + parseInt(color.slice(5, 7), 16) + ',' + (baseOpacity * 0.5) + ')');
         gradient.addColorStop(1, 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' + parseInt(color.slice(5, 7), 16) + ',0)');
         domElements.ctx.fillStyle = gradient;
         domElements.ctx.beginPath();
@@ -198,8 +314,11 @@ export function markPoint(point, fragment) {
         domElements.ctx.arc(displayX, displayY, 6.5, 0, Math.PI * 2);
         domElements.ctx.fill();
 
+        // Note: Aggregation count indicator removed from canvas marker
+        // Reason: Item quantities in cards already show the multiplied count
+
         ifContainRareItem = containsRareItem;
-        displayReward(point.reward, displayX + displayGridWidth * 0.6, displayY + displayGridWidth * 0.4, ifContainRareItem, fragment);
+        displayReward(point.reward, displayX + displayGridWidth * 0.6, displayY + displayGridWidth * 0.4, ifContainRareItem, fragment, isAggregated, aggregatedCount);
 
     } else {
         domElements.ctx.fillStyle = 'black';
@@ -210,10 +329,25 @@ export function markPoint(point, fragment) {
 
 /**
  * Display reward items for a fixture
+ *
+ * DEBUGGING NOTES (v3.5):
+ * Testing minimal aggregation rendering to isolate layout issue.
+ * Current test: scaleFactor disabled, count badge disabled.
+ * If this renders correctly: problem is with scaling/badges
+ * If this still breaks: problem is more fundamental with aggregation
  */
-export function displayReward(reward, x, y, ifContainRareItem, fragment) {
+export function displayReward(reward, x, y, ifContainRareItem, fragment, isAggregated, aggregatedCount) {
     const itemList = document.createElement('div');
     itemList.className = 'item-list';
+
+    // Calculate scale factor for aggregated cards (1.0 to 1.6x)
+    const scaleFactor = isAggregated && aggregatedCount > 1
+        ? 1.4 + Math.min(aggregatedCount - 2, 1) * 0.2  // 1.4x for 2 items, 1.6x for 3+ items
+        : 1.0;
+
+    if (aggregationState.debugMode && isAggregated && aggregatedCount > 1) {
+        console.log('TEST displayReward: scaleFactor enabled, aggregated=' + isAggregated + ', count=' + aggregatedCount + ', scaleFactor=' + scaleFactor.toFixed(2));
+    }
 
     let hasVisibleItems = false;
 
@@ -228,7 +362,10 @@ export function displayReward(reward, x, y, ifContainRareItem, fragment) {
             }
 
             hasVisibleItems = true;
-            const quantity = reward[category][itemId];
+            let quantity = reward[category][itemId];
+            // Do NOT multiply quantity for aggregated cards
+            // Count badge provides visual indicator instead
+
             const texture = ITEM_TEXTURES[category]?.[itemId] || './icon/missing.png';
 
             const itemEntry = document.createElement('div');
@@ -245,9 +382,19 @@ export function displayReward(reward, x, y, ifContainRareItem, fragment) {
             itemImage.dataset.category = category;
             itemImage.dataset.itemId = itemId;
 
+            // Scale image size for aggregated cards (base 24px from CSS)
+            const imageSize = 24 * scaleFactor;
+            itemImage.style.width = imageSize + 'px';
+            itemImage.style.height = imageSize + 'px';
+
             const quantityBadge = document.createElement('span');
             quantityBadge.className = 'quantity';
             quantityBadge.textContent = quantity;
+            // Scale badge size for aggregated cards
+            if (scaleFactor > 1.0) {
+                quantityBadge.style.fontSize = (8 * scaleFactor) + 'px';
+                quantityBadge.style.padding = (2 * scaleFactor) + 'px ' + (4 * scaleFactor) + 'px';
+            }
 
             itemEntry.style.position = 'relative';
             itemEntry.appendChild(itemImage);
@@ -271,6 +418,32 @@ export function displayReward(reward, x, y, ifContainRareItem, fragment) {
         } else {
             itemList.style.background = 'rgba(88, 83, 135, 0.95)';
         }
+    }
+
+    // Add small aggregation count indicator if needed
+    if (isAggregated && aggregatedCount > 1) {
+        const countBadge = document.createElement('div');
+        // Badge - 20px, positioned to extend outside card border
+        const badgeSize = 20;
+        countBadge.style.position = 'absolute';
+        // Position at top-right corner, extending outside the card border
+        countBadge.style.top = '-8px';
+        countBadge.style.right = '-8px';
+        countBadge.style.background = '#ff6b6b';
+        countBadge.style.color = 'white';
+        countBadge.style.borderRadius = '50%';
+        countBadge.style.width = badgeSize + 'px';
+        countBadge.style.height = badgeSize + 'px';
+        countBadge.style.display = 'flex';
+        countBadge.style.alignItems = 'center';
+        countBadge.style.justifyContent = 'center';
+        countBadge.style.fontSize = '11px';
+        countBadge.style.fontWeight = 'bold';
+        countBadge.style.border = '2px solid white';
+        countBadge.style.zIndex = '10';
+        countBadge.style.pointerEvents = 'none';
+        countBadge.textContent = '×' + aggregatedCount;
+        itemList.appendChild(countBadge);
     }
 
     // Add to fragment for batch DOM insertion
@@ -299,33 +472,59 @@ export function processPendingItemPositions() {
     if (domLayoutState.pendingItemPositions.length === 0) return;
 
     const imageContainer = document.querySelector('.image-container');
+    if (!imageContainer) return;
+
     const containerWidth = imageContainer.offsetWidth;
     const containerHeight = imageContainer.offsetHeight;
 
-    // Process positions in batch using transform for performance
-    domLayoutState.pendingItemPositions.forEach(({ itemList, x, y }) => {
-        const itemRect = itemList.getBoundingClientRect();
-        let finalLeft = x;
-        let finalTop = y;
-        const itemWidth = itemRect.width;
-        const itemHeight = itemRect.height;
-        const margin = 5;
-
-        // Boundary checks
-        if (x + itemWidth + margin > containerWidth) {
-            finalLeft = Math.max(0, containerWidth - itemWidth - margin);
+    // Defensive check: ensure container has valid dimensions
+    if (containerWidth <= 0 || containerHeight <= 0) {
+        if (aggregationState.debugMode) {
+            console.warn('Container has invalid dimensions:', containerWidth, 'x', containerHeight);
         }
-        if (y + itemHeight + margin > containerHeight) {
-            finalTop = Math.max(0, containerHeight - itemHeight - margin);
-        }
-        if (finalTop < 0) finalTop = margin;
-        if (finalLeft < 0) finalLeft = margin;
+        domLayoutState.pendingItemPositions = [];
+        return;
+    }
 
-        // Use transform for compositing performance
-        itemList.style.left = `0px`;
-        itemList.style.top = `0px`;
-        const translateY = canvasState.reverseXY ? finalTop - 10 : finalTop;
-        itemList.style.transform = `translate(${finalLeft}px, ${translateY}px)`;
+    // Process positions in batch using transform for performance (compatible with scaling)
+    domLayoutState.pendingItemPositions.forEach(({ itemList, x, y }, index) => {
+        try {
+            // Get actual dimensions after layout
+            const itemWidth = itemList.offsetWidth;
+            const itemHeight = itemList.offsetHeight;
+            const margin = 5;
+
+            let finalLeft = x;
+            let finalTop = y;
+
+            // Defensive: ensure values are numbers
+            if (isNaN(finalLeft)) finalLeft = margin;
+            if (isNaN(finalTop)) finalTop = margin;
+
+            // Boundary checks with container-relative calculation
+            if (finalLeft + itemWidth + margin > containerWidth) {
+                finalLeft = Math.max(0, containerWidth - itemWidth - margin);
+            }
+            if (finalTop + itemHeight + margin > containerHeight) {
+                finalTop = Math.max(0, containerHeight - itemHeight - margin);
+            }
+            if (finalTop < 0) finalTop = margin;
+            if (finalLeft < 0) finalLeft = margin;
+
+            // Use transform for compositing performance (compatible with scaling)
+            itemList.style.left = '0px';
+            itemList.style.top = '0px';
+            const translateY = canvasState.reverseXY ? finalTop - 10 : finalTop;
+
+            // Defensive: ensure transform values are valid
+            if (!isNaN(finalLeft) && !isNaN(translateY)) {
+                itemList.style.transform = `translate(${finalLeft}px, ${translateY}px)`;
+            }
+        } catch (error) {
+            if (aggregationState.debugMode) {
+                console.error('Error positioning item', index, ':', error);
+            }
+        }
     });
 
     domLayoutState.pendingItemPositions = [];

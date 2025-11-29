@@ -213,7 +213,7 @@ body {
     border-radius: 12px;
     font-size: 12px;
     text-align: left;
-    padding: 6px;
+    padding: 8px;
     backdrop-filter: blur(10px);
     border: 2px solid rgba(64, 176, 191, 0.5);
     box-shadow: 0 6px 16px rgba(23, 91, 145, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
@@ -229,8 +229,8 @@ body {
 }
 
 .item-list img {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     vertical-align: middle;
     position: relative;
     margin: 2px;

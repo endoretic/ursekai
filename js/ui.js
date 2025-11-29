@@ -5,7 +5,7 @@
 
 import { SCENES, FIXTURE_COLORS, ITEM_TEXTURES, RARE_ITEM, SUPER_RARE_ITEM, SITE_ID_MAP } from './config.js';
 import { canvasState, sceneState, domElements, canvasOptimizationState, filterState, texturePreloadState } from './state.js';
-import { initCanvas, drawGrid, markPoint, displayReward, processPendingItemPositions, adjustItemListPositions, clearItemLists, clearDirtyRegions, calculateDirtyRegions, clearGrid } from './canvas.js';
+import { initCanvas, drawGrid, markPoint, displayReward, processPendingItemPositions, adjustItemListPositions, clearItemLists, clearDirtyRegions, calculateDirtyRegions, clearGrid, aggregatePoints } from './canvas.js';
 import { changeFilterMode, toggleFilterPanel, doContainsRareItem, shouldShowItem, setFilterChangeCallback } from './filters.js';
 import { handleFileUpload, processJsonFile } from './dataParser.js';
 
@@ -72,24 +72,28 @@ export function parseAndMarkPoints() {
             return;
         }
 
+        // Aggregate similar nearby points
+        const aggregatedPoints = aggregatePoints(points);
+
         // Batch DOM insertions using DocumentFragment
         const fragment = document.createDocumentFragment();
         if (!canvasState.reverseXY) {
-            points.forEach(point => markPoint(point, fragment));
+            aggregatedPoints.forEach(point => markPoint(point, fragment));
         } else {
-            points.forEach(point => markPoint({location: [point.location[1], point.location[0]], fixtureId: point.fixtureId, reward: point.reward}, fragment));
+            aggregatedPoints.forEach(point => markPoint({location: [point.location[1], point.location[0]], fixtureId: point.fixtureId, reward: point.reward, isAggregated: point.isAggregated, aggregatedCount: point.aggregatedCount}, fragment));
         }
         document.querySelector('.image-container').appendChild(fragment);
 
         // Process positions after DOM rendering
         requestAnimationFrame(() => {
             processPendingItemPositions();
-            if (points.length < 300) {
+            if (aggregatedPoints.length < 300) {
                 adjustItemListPositions(5, 5);
             }
         });
 
-        logger(`Marked ${points.length} fixtures`);
+        const aggregatedCount = aggregatedPoints.filter(p => p.isAggregated).length;
+        logger(`Marked ${points.length} fixtures (${aggregatedCount} aggregated into ${points.length - aggregatedCount} groups)`);
 
         // Update item summary
         updateItemSummary();
