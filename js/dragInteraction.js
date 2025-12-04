@@ -165,6 +165,8 @@ function handleCardPointerDown(e) {
     // Check if click is on an item-list or inside it
     const itemList = e.target.closest('.item-list');
     if (!itemList) return;
+    // Ignore non-left buttons (e.g., right-click) to prevent drag glitches
+    if (typeof e.button === 'number' && e.button !== 0) return;
 
     // Prevent all default behaviors
     e.preventDefault();
