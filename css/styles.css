@@ -12,6 +12,10 @@
     --bg: #ffffff;
     --text: #2d2d2d;
     --border: #40b0bf;
+    --card-scale: 1;
+    --card-font-scale: 1;
+    --card-icon-size: 20px;
+    --preview-size: 120px;
 }
 
 body {
@@ -227,10 +231,10 @@ body {
 .item-list {
     position: absolute;
     background: rgba(5, 51, 99, 0.88);
-    border-radius: 10px;
-    font-size: 10px;
+    border-radius: calc(10px * var(--card-scale));
+    font-size: calc(10px * var(--card-font-scale));
     text-align: left;
-    padding: 6px;
+    padding: calc(6px * var(--card-scale));
     backdrop-filter: blur(10px);
     border: 2px solid rgba(64, 176, 191, 0.5);
     box-shadow: 0 6px 16px rgba(23, 91, 145, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
@@ -242,6 +246,7 @@ body {
     user-select: none;
     -webkit-user-drag: none;
     -webkit-user-select: none;
+    touch-action: none;
 }
 
 .item-list:hover {
@@ -249,8 +254,8 @@ body {
 }
 
 .item-list img {
-    width: 20px;
-    height: 20px;
+    width: var(--card-icon-size);
+    height: var(--card-icon-size);
     vertical-align: middle;
     position: relative;
     margin: 1px;
@@ -260,14 +265,14 @@ body {
 }
 
 .item-list .quantity {
-    font-size: 8px;
+    font-size: calc(8px * var(--card-font-scale));
     position: absolute;
     bottom: 0;
     right: 0;
     color: white;
     background: rgba(0, 0, 0, 0.5);
     border-radius: 50%;
-    padding: 2px 4px;
+    padding: calc(2px * var(--card-scale)) calc(4px * var(--card-scale));
     font-weight: bold;
     pointer-events: none;
 }
@@ -496,8 +501,10 @@ summary:hover {
 }
 
 .item-preview img {
-    width: 120px;
-    height: 120px;
+    width: var(--preview-size);
+    height: var(--preview-size);
+    max-width: 70vw;
+    max-height: 50vh;
     object-fit: contain;
 }
 
@@ -629,6 +636,25 @@ summary:hover {
 .sidebar-overlay.active {
     opacity: 1;
     pointer-events: all;
+}
+
+/* Mobile: narrower sidebar and smaller padding */
+@media (max-width: 540px) {
+    .sidebar {
+        width: 260px;
+        padding: 14px;
+    }
+    .sidebar-header h2 {
+        font-size: 16px;
+    }
+    .sidebar-content .scene-buttons button {
+        padding: 10px;
+    }
+    .sidebar-content .filter-button,
+    .sidebar-content .action-buttons button {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
 }
 
 .controls {

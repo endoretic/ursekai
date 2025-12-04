@@ -8,6 +8,29 @@ import { domElements, canvasState, domLayoutState, canvasOptimizationState, aggr
 import { shouldShowItem } from './filters.js';
 
 /**
+ * Get current display scale of the map image relative to its natural size.
+ * Used to keep overlays aligned when the image is resized (mobile/zoom).
+ */
+export function getImageScale() {
+    if (!domElements.image) return 1;
+
+    const naturalWidth = domElements.image.naturalWidth || domElements.image.width || 0;
+    const naturalHeight = domElements.image.naturalHeight || domElements.image.height || 0;
+    const displayWidth = domElements.image.clientWidth || naturalWidth;
+    const displayHeight = domElements.image.clientHeight || naturalHeight;
+
+    if (!naturalWidth || !naturalHeight) {
+        return 1;
+    }
+
+    const scaleX = displayWidth / naturalWidth;
+    const scaleY = displayHeight / naturalHeight;
+
+    // Average the two axes to smooth out minor rounding differences
+    return (scaleX + scaleY) / 2;
+}
+
+/**
  * Create a unique key for a reward set
  */
 function createRewardKey(reward) {
@@ -186,8 +209,9 @@ export function updatePageZoomLevel() {
  */
 export function drawGrid() {
     const physicalGridWidth = parseFloat(domElements.physicalWidthInput.value);
-    const offsetX = parseFloat(domElements.offsetXInput.value);
-    const offsetY = parseFloat(domElements.offsetYInput.value);
+    const offsetScale = getImageScale() || 1;
+    const offsetX = parseFloat(domElements.offsetXInput.value) * offsetScale;
+    const offsetY = parseFloat(domElements.offsetYInput.value) * offsetScale;
     const displayWidth = domElements.image.clientWidth;
     const displayHeight = domElements.image.clientHeight;
     const naturalWidth = domElements.image.naturalWidth;
@@ -269,8 +293,9 @@ export function calculateDirtyRegions(newPoints) {
         if (!lastPoint || lastPoint.location[0] !== point.location[0] || lastPoint.location[1] !== point.location[1]) {
             // Point position changed, mark for redraw
             const displayGridWidth = parseFloat(domElements.physicalWidthInput.value) * (domElements.image.clientWidth / domElements.image.naturalWidth);
-            const offsetX = parseFloat(domElements.offsetXInput.value);
-            const offsetY = parseFloat(domElements.offsetYInput.value);
+            const offsetScale = getImageScale() || 1;
+            const offsetX = parseFloat(domElements.offsetXInput.value) * offsetScale;
+            const offsetY = parseFloat(domElements.offsetYInput.value) * offsetScale;
             const originX = domElements.canvas.width / 2 + offsetX;
             const originY = domElements.canvas.height / 2 + offsetY;
 
@@ -317,8 +342,9 @@ export function markPoint(point, fragment) {
                                    point.aggregatedIndices.some(idx => dragState.hiddenOriginalPointIndices.includes(idx));
 
     const [x, y] = point.location;
-    const offsetX = parseFloat(domElements.offsetXInput.value);
-    const offsetY = parseFloat(domElements.offsetYInput.value);
+    const offsetScale = getImageScale() || 1;
+    const offsetX = parseFloat(domElements.offsetXInput.value) * offsetScale;
+    const offsetY = parseFloat(domElements.offsetYInput.value) * offsetScale;
     const originX = domElements.canvas.width / 2 + offsetX;
     const originY = domElements.canvas.height / 2 + offsetY;
     const displayGridWidth = parseFloat(domElements.physicalWidthInput.value) * (domElements.image.clientWidth / domElements.image.naturalWidth);
@@ -353,8 +379,10 @@ export function markPoint(point, fragment) {
 
     // Only draw point marker if not hidden during drag
     if (color && !shouldHidePointMarker) {
-        // Draw outer glow - same style for all points
-        const outerRadius = 11;
+        // Scale marker size with current grid width so small screens don't crowd
+        const scaledOuter = displayGridWidth * 0.65;
+        const outerRadius = Math.max(2.5, Math.min(10, scaledOuter));
+        const innerRadius = Math.max(1.4, Math.min(6, outerRadius * 0.55));
         const baseOpacity = 0.5;  // Aggregated and non-aggregated points use same opacity
         const gradient = domElements.ctx.createRadialGradient(displayX, displayY, 0, displayX, displayY, outerRadius);
         gradient.addColorStop(0, 'rgba(' + parseInt(color.slice(1, 3), 16) + ',' + parseInt(color.slice(3, 5), 16) + ',' + parseInt(color.slice(5, 7), 16) + ',' + baseOpacity + ')');
@@ -368,7 +396,7 @@ export function markPoint(point, fragment) {
         // Draw inner core
         domElements.ctx.fillStyle = color;
         domElements.ctx.beginPath();
-        domElements.ctx.arc(displayX, displayY, 6.5, 0, Math.PI * 2);
+        domElements.ctx.arc(displayX, displayY, innerRadius, 0, Math.PI * 2);
         domElements.ctx.fill();
 
         ifContainRareItem = doContainsRareItem(point.reward);
@@ -384,8 +412,12 @@ export function markPoint(point, fragment) {
     // Display reward card only for aggregation leaders or non-aggregated points
     // When aggregation is enabled and all points are displayed on map, only leaders should generate cards
     const shouldDisplayCard = !point.isAggregated || point.isAggregationLeader === true;
+    // Use smaller card offsets on mobile so cards stay closer to markers
+    const isMobileViewport = domLayoutState?.deviceProfile?.isMobileViewport;
+    const cardOffsetX = displayGridWidth * (isMobileViewport ? 0.28 : 0.6);
+    const cardOffsetY = displayGridWidth * (isMobileViewport ? 0.2 : 0.4);
     if (shouldDisplayCard) {
-        displayReward(point.reward, displayX + displayGridWidth * 0.6, displayY + displayGridWidth * 0.4, ifContainRareItem, fragment, isAggregated, aggregatedCount, displayX, displayY, point);
+        displayReward(point.reward, displayX + cardOffsetX, displayY + cardOffsetY, ifContainRareItem, fragment, isAggregated, aggregatedCount, displayX, displayY, point);
     }
 }
 
@@ -446,9 +478,12 @@ export function displayReward(reward, x, y, ifContainRareItem, fragment, isAggre
         return false;
     }, true);
 
-    // Calculate scale factor for aggregated cards (1.0 to 1.6x)
+    // Calculate scale factor for aggregated cards (desktop larger, mobile tighter)
+    const isMobileViewport = domLayoutState?.deviceProfile?.isMobileViewport;
+    const baseScale = isMobileViewport ? 1.05 : 1.35;
+    const extraScale = isMobileViewport ? 0.10 : 0.25;
     const scaleFactor = isAggregated && aggregatedCount > 1
-        ? 1.4 + Math.min(aggregatedCount - 2, 1) * 0.2  // 1.4x for 2 items, 1.6x for 3+ items
+        ? baseScale + Math.min(aggregatedCount - 2, 1) * extraScale
         : 1.0;
 
     if (aggregationState.debugMode && isAggregated && aggregatedCount > 1) {
@@ -488,8 +523,10 @@ export function displayReward(reward, x, y, ifContainRareItem, fragment, isAggre
             itemImage.dataset.category = category;
             itemImage.dataset.itemId = itemId;
 
-            // Scale image size for aggregated cards (base 24px from CSS)
-            const imageSize = 24 * scaleFactor;
+            // Scale image size using CSS variable base to stay in sync with device profile
+            const rootStyles = getComputedStyle(document.documentElement);
+            const baseIconSize = parseFloat(rootStyles.getPropertyValue('--card-icon-size')) || 20;
+            const imageSize = baseIconSize * scaleFactor;
             itemImage.style.width = imageSize + 'px';
             itemImage.style.height = imageSize + 'px';
 
@@ -529,12 +566,14 @@ export function displayReward(reward, x, y, ifContainRareItem, fragment, isAggre
     // Add small aggregation count indicator if needed
     if (isAggregated && aggregatedCount > 1) {
         const countBadge = document.createElement('div');
-        // Badge - 22px, positioned to extend outside card border
-        const badgeSize = 22;
+        // Badge sized relative to icon scale so it stays compact on small screens
+        const rootStyles = getComputedStyle(document.documentElement);
+        const baseIconSize = parseFloat(rootStyles.getPropertyValue('--card-icon-size')) || 20;
+        const badgeSize = Math.max(18, Math.round(baseIconSize * 0.9));
         countBadge.style.position = 'absolute';
         // Position at top-right corner, extending outside the card border
-        countBadge.style.top = '-9px';
-        countBadge.style.right = '-9px';
+        countBadge.style.top = '-7px';
+        countBadge.style.right = '-7px';
         countBadge.style.background = '#ff6b6b';
         countBadge.style.color = 'white';
         countBadge.style.borderRadius = '50%';

@@ -6,6 +6,7 @@
 import { dragState, domElements, sceneState, canvasState, domLayoutState } from './state.js';
 import { FIXTURE_COLORS } from './config.js';
 import { hideItemPreview } from './ui.js';
+import { getImageScale } from './canvas.js';
 
 let overlayCanvas = null;
 let overlayCtx = null;
@@ -24,10 +25,17 @@ export function initializeDragInteraction() {
     // Create overlay canvas for connection lines
     createOverlayCanvas();
 
-    // Card dragging events
-    imageContainer.addEventListener('mousedown', handleCardMouseDown);
-    document.addEventListener('mousemove', handleCardMouseMove);
-    document.addEventListener('mouseup', handleCardMouseUp);
+    // Card dragging events (pointer events support touch + mouse)
+    const downEvent = window.PointerEvent ? 'pointerdown' : 'mousedown';
+    const moveEvent = window.PointerEvent ? 'pointermove' : 'mousemove';
+    const upEvent = window.PointerEvent ? 'pointerup' : 'mouseup';
+
+    imageContainer.addEventListener(downEvent, handleCardPointerDown, { passive: false });
+    document.addEventListener(moveEvent, handleCardPointerMove, { passive: false });
+    document.addEventListener(upEvent, handleCardPointerUp, { passive: false });
+    if (window.PointerEvent) {
+        document.addEventListener('pointercancel', handleCardPointerUp, { passive: false });
+    }
 
     // Prevent default drag behavior on images and containers
     imageContainer.addEventListener('dragstart', (e) => {
@@ -138,9 +146,22 @@ export function refreshOverlayCanvas() {
 }
 
 /**
- * Handle mousedown on item cards
+ * Normalize pointer/touch coordinates
  */
-function handleCardMouseDown(e) {
+function getPointerCoordinates(event) {
+    if (event && event.touches && event.touches.length > 0) {
+        return { x: event.touches[0].clientX, y: event.touches[0].clientY };
+    }
+    if (event && event.changedTouches && event.changedTouches.length > 0) {
+        return { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY };
+    }
+    return { x: event.clientX, y: event.clientY };
+}
+
+/**
+ * Handle pointerdown on item cards
+ */
+function handleCardPointerDown(e) {
     // Check if click is on an item-list or inside it
     const itemList = e.target.closest('.item-list');
     if (!itemList) return;
@@ -149,10 +170,20 @@ function handleCardMouseDown(e) {
     e.preventDefault();
     e.stopPropagation();
 
+    const coords = getPointerCoordinates(e);
+
     dragState.isDragging = true;
     dragState.draggedCard = itemList;
-    dragState.dragStartX = e.clientX;
-    dragState.dragStartY = e.clientY;
+    dragState.dragStartX = coords.x;
+    dragState.dragStartY = coords.y;
+    dragState.activePointerId = typeof e.pointerId === 'number' ? e.pointerId : null;
+    if (dragState.activePointerId !== null && itemList.setPointerCapture) {
+        try {
+            itemList.setPointerCapture(dragState.activePointerId);
+        } catch (err) {
+            // Ignore if capture cannot be set
+        }
+    }
 
     // Store original position
     const transform = itemList.style.transform;
@@ -218,14 +249,17 @@ function handleCardMouseDown(e) {
 }
 
 /**
- * Handle mousemove while dragging
+ * Handle pointermove while dragging
  */
-function handleCardMouseMove(e) {
+function handleCardPointerMove(e) {
     if (!dragState.isDragging || !dragState.draggedCard) return;
+    if (dragState.activePointerId !== null && typeof e.pointerId === 'number' && e.pointerId !== dragState.activePointerId) return;
 
     // Prevent default behavior while dragging
     e.preventDefault();
     e.stopPropagation();
+
+    const coords = getPointerCoordinates(e);
 
     // Update canvas dimensions in case window was resized during drag
     if (domElements.image && domElements.canvas) {
@@ -247,8 +281,8 @@ function handleCardMouseMove(e) {
     // Update zoom level in case browser was zoomed
     updateZoomLevel();
 
-    const deltaX = e.clientX - dragState.dragStartX;
-    const deltaY = e.clientY - dragState.dragStartY;
+    const deltaX = coords.x - dragState.dragStartX;
+    const deltaY = coords.y - dragState.dragStartY;
 
     const newX = dragState.dragOffsetX + deltaX;
     const newY = dragState.dragOffsetY + deltaY;
@@ -263,10 +297,11 @@ function handleCardMouseMove(e) {
 }
 
 /**
- * Handle mouseup to end dragging
+ * Handle pointerup/pointercancel to end dragging
  */
-function handleCardMouseUp(e) {
+function handleCardPointerUp(e) {
     if (!dragState.isDragging || !dragState.draggedCard) return;
+    if (dragState.activePointerId !== null && typeof e.pointerId === 'number' && e.pointerId !== dragState.activePointerId) return;
 
     // Prevent default behavior
     e.preventDefault();
@@ -291,12 +326,22 @@ function handleCardMouseUp(e) {
         }
     }
 
+    // Release pointer capture to avoid stuck states on touch devices
+    if (dragState.activePointerId !== null && dragState.draggedCard && dragState.draggedCard.releasePointerCapture) {
+        try {
+            dragState.draggedCard.releasePointerCapture(dragState.activePointerId);
+        } catch (err) {
+            // Ignore if capture was not set
+        }
+    }
+
     dragState.draggedCard = null;
     dragState.harvestPoints = [];
     dragState.aggregatedIndices = [];
     dragState.isAggregatedCard = false;
     dragState.hasTriggeredRerender = false;
     dragState.hiddenOriginalPointIndices = [];
+    dragState.activePointerId = null;
 }
 
 /**
@@ -389,8 +434,10 @@ function updateZoomLevel() {
  * so no additional zoom factor is needed
  */
 function gameToScreenCoordinates(gameX, gameY) {
-    const offsetX = parseFloat(domElements.offsetXInput.value);
-    const offsetY = parseFloat(domElements.offsetYInput.value);
+    // Scale user-provided offsets with current image scale so mobile layouts stay aligned
+    const scale = getImageScale() || 1;
+    const offsetX = parseFloat(domElements.offsetXInput.value) * scale;
+    const offsetY = parseFloat(domElements.offsetYInput.value) * scale;
     const originX = domElements.canvas.width / 2 + offsetX;
     const originY = domElements.canvas.height / 2 + offsetY;
     const displayGridWidth = parseFloat(domElements.physicalWidthInput.value) * (domElements.image.clientWidth / domElements.image.naturalWidth);
@@ -439,6 +486,15 @@ function drawConnectionLines() {
     const isValidColor = fixtureColor && fixtureColor.match(/^#[0-9a-fA-F]{6}$/);
     const rgbColor = isValidColor ? fixtureColor : '#6464FF';
 
+    // Scale stroke and dashes with image scale so lines stay thin on small screens
+    const imageScale = getImageScale() || 1;
+    const displayGridWidth = parseFloat(domElements.physicalWidthInput.value) * (domElements.image.clientWidth / domElements.image.naturalWidth);
+    const scaledOuter = displayGridWidth * 0.65;
+    const outerRadius = Math.max(2.5, Math.min(10, scaledOuter));
+    const innerRadius = Math.max(1.4, Math.min(6, outerRadius * 0.55));
+    const lineWidth = Math.max(1.2, Math.min(4, 3.5 * imageScale));
+    const dashSize = Math.max(2, Math.min(6, 5 * imageScale));
+
     // Parse RGB values from hex color
     const r = parseInt(rgbColor.slice(1, 3), 16);
     const g = parseInt(rgbColor.slice(3, 5), 16);
@@ -461,8 +517,8 @@ function drawConnectionLines() {
     // Setup line style
     overlayCtx.save();
     overlayCtx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.7)`;
-    overlayCtx.lineWidth = 3.5;
-    overlayCtx.setLineDash([5, 5]); // Dashed line
+    overlayCtx.lineWidth = lineWidth;
+    overlayCtx.setLineDash([dashSize, dashSize]); // Dashed line
 
     // Draw lines to harvest points
     if (dragState.isAggregatedCard && dragState.harvestPoints.length > 1) {
@@ -475,7 +531,6 @@ function drawConnectionLines() {
                 overlayCtx.stroke();
 
                 // Draw endpoint circle with glow effect to match canvas markers
-                const outerRadius = 11;
                 const baseOpacity = 0.5;
                 const gradient = overlayCtx.createRadialGradient(point.x, point.y, 0, point.x, point.y, outerRadius);
                 gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${baseOpacity})`);
@@ -489,12 +544,13 @@ function drawConnectionLines() {
                 // Draw inner core
                 overlayCtx.fillStyle = rgbColor;
                 overlayCtx.beginPath();
-                overlayCtx.arc(point.x, point.y, 6.5, 0, Math.PI * 2);
+                overlayCtx.arc(point.x, point.y, innerRadius, 0, Math.PI * 2);
                 overlayCtx.fill();
 
                 // Draw index label
                 overlayCtx.fillStyle = 'white';
-                overlayCtx.font = 'bold 10px Arial';
+                const fontSize = Math.max(8, Math.min(11, 11 * imageScale));
+                overlayCtx.font = `bold ${fontSize}px Arial`;
                 overlayCtx.textAlign = 'center';
                 overlayCtx.textBaseline = 'middle';
                 overlayCtx.fillText(point.index.toString(), point.x, point.y);
@@ -510,7 +566,6 @@ function drawConnectionLines() {
             overlayCtx.stroke();
 
             // Draw endpoint circle with glow effect to match canvas markers
-            const outerRadius = 11;
             const baseOpacity = 0.5;
             const gradient = overlayCtx.createRadialGradient(harvestPoint.x, harvestPoint.y, 0, harvestPoint.x, harvestPoint.y, outerRadius);
             gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${baseOpacity})`);
@@ -524,7 +579,7 @@ function drawConnectionLines() {
             // Draw inner core
             overlayCtx.fillStyle = rgbColor;
             overlayCtx.beginPath();
-            overlayCtx.arc(harvestPoint.x, harvestPoint.y, 6.5, 0, Math.PI * 2);
+            overlayCtx.arc(harvestPoint.x, harvestPoint.y, innerRadius, 0, Math.PI * 2);
             overlayCtx.fill();
         }
     }

@@ -4,7 +4,11 @@
  */
 
 import { SCENES, FIXTURE_COLORS, ITEM_TEXTURES, RARE_ITEM, SUPER_RARE_ITEM, SITE_ID_MAP } from './config.js';
-import { canvasState, sceneState, domElements, canvasOptimizationState, filterState, texturePreloadState, displayModeState } from './state.js';
+import { canvasState, sceneState, domElements, canvasOptimizationState, filterState, texturePreloadState, displayModeState, domLayoutState, dragState } from './state.js';
+
+const MOBILE_PREVIEW_HIDE_MS = 2200;
+let previewAutoHideTimer = null;
+let lastTouchPreviewTime = 0;
 import { initCanvas, drawGrid, markPoint, displayReward, processPendingItemPositions, adjustItemListPositions, clearItemLists, clearDirtyRegions, calculateDirtyRegions, clearGrid, aggregatePoints } from './canvas.js';
 import { changeFilterMode, toggleFilterPanel, doContainsRareItem, shouldShowItem, setFilterChangeCallback } from './filters.js';
 import { handleFileUpload, processJsonFile } from './dataParser.js';
@@ -33,6 +37,92 @@ export function logger(message) {
 
     // Auto-scroll to bottom
     logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+/**
+ * Detect device profile (UA + screen) for mobile-friendly adjustments
+ */
+function detectDeviceProfile() {
+    const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+    const screenWidth = (window.screen && window.screen.width) ? window.screen.width : (window.innerWidth || 0);
+    const screenHeight = (window.screen && window.screen.height) ? window.screen.height : (window.innerHeight || 0);
+    const pixelRatio = window.devicePixelRatio || 1;
+    const maxTouchPoints = typeof navigator !== 'undefined' ? (navigator.maxTouchPoints || 0) : 0;
+    const isTouch = ('ontouchstart' in window) || maxTouchPoints > 0;
+    const minDimension = Math.min(
+        screenWidth || Number.MAX_VALUE,
+        screenHeight || Number.MAX_VALUE,
+        window.innerWidth || Number.MAX_VALUE,
+        window.innerHeight || Number.MAX_VALUE
+    );
+    const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Windows Phone/i.test(ua);
+    const isMobileViewport = isMobileUA || minDimension <= 920;
+    const signature = `${Math.round(screenWidth)}x${Math.round(screenHeight)}|${pixelRatio}|${isTouch ? 1 : 0}|${isMobileViewport ? 1 : 0}|${ua}`;
+    const profileChanged = signature !== domLayoutState.deviceProfile.signature;
+
+    domLayoutState.deviceProfile = {
+        ua,
+        screenWidth,
+        screenHeight,
+        pixelRatio,
+        isTouch,
+        isMobileViewport,
+        minDimension,
+        signature
+    };
+
+    if (document && document.body) {
+        document.body.classList.toggle('mobile-device', isMobileViewport);
+        document.body.classList.toggle('touch-device', isTouch);
+    }
+
+    applyCardScaleForDevice(domLayoutState.deviceProfile);
+    if (profileChanged) {
+        logger(`Device profile updated: ${screenWidth}x${screenHeight} @${pixelRatio}x${isMobileViewport ? ' (mobile)' : ''}`);
+    }
+    return profileChanged;
+}
+
+/**
+ * Apply card/preview sizing for the current device profile
+ */
+function applyCardScaleForDevice(profile) {
+    const root = document.documentElement;
+    if (!root) return;
+
+    const minSide = profile.minDimension || Math.min(profile.screenWidth || 0, profile.screenHeight || 0);
+    const compactMobile = profile.isMobileViewport && minSide <= 540;
+    // Shrink harder on very small screens; keep desktop comfortably large
+    const cardScale = profile.isMobileViewport ? (compactMobile ? 0.64 : 0.74) : 1.12;
+    const fontScale = profile.isMobileViewport ? (compactMobile ? 0.82 : 0.9) : 1.08;
+    const iconSize = profile.isMobileViewport ? (compactMobile ? '15px' : '17px') : '24px';
+    const previewSize = profile.isMobileViewport ? (compactMobile ? '88px' : '100px') : '132px';
+
+    root.style.setProperty('--card-scale', cardScale.toString());
+    root.style.setProperty('--card-font-scale', fontScale.toString());
+    root.style.setProperty('--card-icon-size', iconSize);
+    root.style.setProperty('--preview-size', previewSize);
+}
+
+/**
+ * Normalize pointer/touch coordinates
+ */
+function getInputPosition(event) {
+    if (event && event.touches && event.touches.length > 0) {
+        return { x: event.touches[0].clientX, y: event.touches[0].clientY };
+    }
+    if (event && event.changedTouches && event.changedTouches.length > 0) {
+        return { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY };
+    }
+    return { x: event.clientX, y: event.clientY };
+}
+
+/**
+ * Format preview label without exposing raw category keys
+ */
+function formatPreviewLabel() {
+    // Keep preview label blank per mobile UX request
+    return '';
 }
 
 /**
@@ -222,21 +312,61 @@ function createItemPreview() {
 /**
  * Show item preview tooltip
  */
-export function showItemPreview(imgSrc, itemName, mouseX, mouseY) {
+export function showItemPreview(imgSrc, itemName, mouseX, mouseY, options = {}) {
     const preview = createItemPreview();
     preview.innerHTML = `<img src="${imgSrc}" onerror="this.style.display='none'">`;
     preview.classList.add('active');
-    preview.style.left = (mouseX + 15) + 'px';
-    preview.style.top = (mouseY + 15) + 'px';
+
+    // Position preview with bounds checks to avoid clipping on mobile
+    const offset = options.offset || 15;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const previewRect = preview.getBoundingClientRect();
+
+    const targetLeft = (mouseX || 0) + offset;
+    const targetTop = (mouseY || 0) + offset;
+    const maxLeft = Math.max(0, viewportWidth - previewRect.width - 10);
+    const maxTop = Math.max(0, viewportHeight - previewRect.height - 10);
+
+    preview.style.left = Math.min(targetLeft, maxLeft) + 'px';
+    preview.style.top = Math.min(targetTop, maxTop) + 'px';
+
+    if (previewAutoHideTimer) {
+        clearTimeout(previewAutoHideTimer);
+    }
+    if (options.autoHideMs) {
+        previewAutoHideTimer = setTimeout(() => hideItemPreview(), options.autoHideMs);
+    }
 }
 
 /**
  * Hide item preview tooltip
  */
 export function hideItemPreview() {
+    if (previewAutoHideTimer) {
+        clearTimeout(previewAutoHideTimer);
+        previewAutoHideTimer = null;
+    }
     if (domElements.itemPreview) {
         domElements.itemPreview.classList.remove('active');
     }
+}
+
+/**
+ * Handle tap/click preview on touch devices
+ */
+function handlePreviewTap(event, autoHideMs = 0) {
+    const target = event.target;
+    if (!target || target.tagName !== 'IMG' || !target.dataset.category) {
+        return;
+    }
+
+    const coords = getInputPosition(event);
+    const category = target.dataset.category;
+    const itemId = target.dataset.itemId || '';
+    const label = formatPreviewLabel(category, itemId);
+
+    showItemPreview(target.src, label, coords.x, coords.y, { autoHideMs });
 }
 
 /**
@@ -397,13 +527,15 @@ export function initializeDropZone() {
  */
 export function initializeImagePreviewDelegation() {
     const imageContainer = document.querySelector('.image-container');
+    if (!imageContainer) return;
 
     // Single delegated listener for mouseover events
     imageContainer.addEventListener('mouseover', (e) => {
         if (e.target.tagName === 'IMG' && e.target.dataset.category) {
             const category = e.target.dataset.category;
             const itemId = e.target.dataset.itemId;
-            showItemPreview(e.target.src, `${category} #${itemId}`, e.clientX, e.clientY);
+            const label = formatPreviewLabel(category, itemId);
+            showItemPreview(e.target.src, label, e.clientX, e.clientY);
         }
     });
 
@@ -412,8 +544,9 @@ export function initializeImagePreviewDelegation() {
         if (e.target.tagName === 'IMG' && e.target.dataset.category) {
             const preview = domElements.itemPreview;
             if (preview && preview.classList.contains('active')) {
-                preview.style.left = (e.clientX + 15) + 'px';
-                preview.style.top = (e.clientY + 15) + 'px';
+                const coords = getInputPosition(e);
+                preview.style.left = (coords.x + 15) + 'px';
+                preview.style.top = (coords.y + 15) + 'px';
             }
         }
     });
@@ -423,6 +556,24 @@ export function initializeImagePreviewDelegation() {
         if (e.target.tagName === 'IMG' && e.target.dataset.category) {
             hideItemPreview();
         }
+    });
+
+    // Touch-friendly tap to show preview (mobile lacks hover)
+    imageContainer.addEventListener('pointerup', (e) => {
+        if (e.pointerType !== 'touch') return;
+        if (dragState.isDragging) return;
+        e.preventDefault();
+        lastTouchPreviewTime = Date.now();
+        handlePreviewTap(e, MOBILE_PREVIEW_HIDE_MS);
+    }, { passive: false });
+
+    // Click fallback for browsers without pointer events/touch fallback
+    imageContainer.addEventListener('click', (e) => {
+        if (dragState.isDragging) return;
+        if (Date.now() - lastTouchPreviewTime < 350) {
+            return;
+        }
+        handlePreviewTap(e, domLayoutState.deviceProfile.isMobileViewport ? MOBILE_PREVIEW_HIDE_MS : 0);
     });
 }
 
@@ -659,6 +810,9 @@ export function initializeUI() {
     domElements.offsetYInput = document.getElementById('offsetY');
     domElements.ctx = domElements.canvas.getContext('2d');
 
+    // Detect device profile early to tune sizing for mobile
+    detectDeviceProfile();
+
     // Initialize display mode state (load from localStorage or use default 'all')
     displayModeState.init();
 
@@ -684,6 +838,20 @@ export function initializeUI() {
 
 // Window resize handler
 let resizeTimeout;
+
+function scheduleViewportRefresh(delay = 400) {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        const profileChanged = detectDeviceProfile();
+        initCanvas();
+        parseAndMarkPoints();
+        refreshOverlayCanvas();
+        if (profileChanged) {
+            adjustItemListPositions(5, 5);
+        }
+    }, delay);
+}
+
 /**
  * Update display mode button UI to reflect current mode
  */
@@ -718,12 +886,13 @@ export function setDisplayMode(mode) {
 }
 
 window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
     // Delay increased to 400ms to avoid conflicts with sidebar CSS animations (0.3s)
-    resizeTimeout = setTimeout(() => {
-        initCanvas();
-        parseAndMarkPoints();
-    }, 400);
+    scheduleViewportRefresh(400);
+});
+
+// Orientation changes on mobile can report as resize; handle explicitly for clarity
+window.addEventListener('orientationchange', () => {
+    scheduleViewportRefresh(300);
 });
 
 // Initialize on page load

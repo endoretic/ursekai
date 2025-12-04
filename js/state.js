@@ -45,6 +45,15 @@ export const domLayoutState = {
     pageZoomLevel: 1.0, // Browser zoom factor (1.0 = 100%, 1.5 = 150%, etc.)
     lastWindowWidth: typeof window !== 'undefined' ? window.innerWidth : 0,
     lastWindowHeight: typeof window !== 'undefined' ? window.innerHeight : 0,
+    deviceProfile: {
+        ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+        screenWidth: typeof window !== 'undefined' && window.screen ? window.screen.width : 0,
+        screenHeight: typeof window !== 'undefined' && window.screen ? window.screen.height : 0,
+        pixelRatio: typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1,
+        isTouch: typeof window !== 'undefined' ? ('ontouchstart' in window || (navigator && navigator.maxTouchPoints > 0)) : false,
+        isMobileViewport: typeof window !== 'undefined' ? (Math.min(window.innerWidth || 0, window.innerHeight || 0) <= 920) : false,
+        signature: '',
+    },
 };
 
 // Canvas optimization
@@ -107,4 +116,5 @@ export const dragState = {
     hasTriggeredRerender: false, // Flag to trigger hide aggregated points on first move
     connectionLineCanvas: null, // Canvas for drawing connection lines
     fixtureId: 0, // Fixture ID for connection line color matching
+    activePointerId: null, // Track pointer id so touch/mouse do not conflict
 };

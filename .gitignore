@@ -1,6 +1,7 @@
 *.pyc
 mysekai_data.json
 CLAUDE.md
+AGENTS.md
 .vscode/
 .claude/
 testdata/
