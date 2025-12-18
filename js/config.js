@@ -117,6 +117,32 @@ export const ITEM_TEXTURES = {
         "22": "./icon/Texture2D/item_plant_3.png",
         "23": "./icon/Texture2D/item_plant_4.png",
         "24": "./icon/Texture2D/item_tone_8.png",
+        "35": "./icon/Texture2D/memoria/item_memoria_1.png",
+        "36": "./icon/Texture2D/memoria/item_memoria_2.png",
+        "37": "./icon/Texture2D/memoria/item_memoria_3.png",
+        "38": "./icon/Texture2D/memoria/item_memoria_4.png",
+        "39": "./icon/Texture2D/memoria/item_memoria_5.png",
+        "40": "./icon/Texture2D/memoria/item_memoria_6.png",
+        "41": "./icon/Texture2D/memoria/item_memoria_7.png",
+        "42": "./icon/Texture2D/memoria/item_memoria_8.png",
+        "43": "./icon/Texture2D/memoria/item_memoria_9.png",
+        "44": "./icon/Texture2D/memoria/item_memoria_10.png",
+        "45": "./icon/Texture2D/memoria/item_memoria_11.png",
+        "46": "./icon/Texture2D/memoria/item_memoria_12.png",
+        "47": "./icon/Texture2D/memoria/item_memoria_13.png",
+        "48": "./icon/Texture2D/memoria/item_memoria_14.png",
+        "49": "./icon/Texture2D/memoria/item_memoria_15.png",
+        "50": "./icon/Texture2D/memoria/item_memoria_16.png",
+        "51": "./icon/Texture2D/memoria/item_memoria_17.png",
+        "52": "./icon/Texture2D/memoria/item_memoria_18.png",
+        "53": "./icon/Texture2D/memoria/item_memoria_19.png",
+        "54": "./icon/Texture2D/memoria/item_memoria_20.png",
+        "55": "./icon/Texture2D/memoria/item_memoria_21.png",
+        "56": "./icon/Texture2D/memoria/item_memoria_22.png",
+        "57": "./icon/Texture2D/memoria/item_memoria_23.png",
+        "58": "./icon/Texture2D/memoria/item_memoria_24.png",
+        "59": "./icon/Texture2D/memoria/item_memoria_25.png",
+        "60": "./icon/Texture2D/memoria/item_memoria_26.png",
         "32": "./icon/Texture2D/item_junk_8.png",
         "33": "./icon/Texture2D/item_mineral_8.png",
         "34": "./icon/Texture2D/item_junk_9.png",
@@ -124,7 +150,9 @@ export const ITEM_TEXTURES = {
         "62": "./icon/Texture2D/item_junk_11.png",
         "63": "./icon/Texture2D/item_junk_12.png",
         "64": "./icon/Texture2D/item_mineral_9.png",
-        "65": "./icon/Texture2D/item_mineral_10.png"
+        "65": "./icon/Texture2D/item_mineral_10.png",
+        "66": "./icon/Texture2D/item_junk_13.png",
+        "93": "./icon/Texture2D/item_junk_14.png"
     },
     mysekai_item: {
         "7": "./icon/Texture2D/item_blueprint_fragment.png"
@@ -157,7 +185,7 @@ export const ITEM_TEXTURES = {
 
 // Rare item rarity tier definitions
 export const RARE_ITEM = {
-    mysekai_material: [5, 12, 20, 24, 32, 33, 61, 62, 63, 64, 65],
+    mysekai_material: [5, 12, 20, 24, 32, 33, 61, 62, 63, 64, 65, 66, 93],
     mysekai_item: [7],
     mysekai_music_record: [],
     mysekai_fixture: [118, 119, 120, 121]
