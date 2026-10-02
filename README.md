@@ -144,11 +144,11 @@ to update metadata only. The checked-in snapshot is from 2026-10-02, commit
 
 Missing icons are downloaded from Sekai Viewer's
 [current thumbnail directory](https://sekai.best/asset_viewer/mysekai/thumbnail)
-into `icon/Texture2D/`. Existing icons are preserved. New game assets are ignored by
-Git; do not force-add them. For offline use, run with `--download-icons`. A deployed
-copy without these local downloads tries the public CDN, then `icon/missing.png`.
-Include locally downloaded icons in your private/static deployment if CDN access
-is unavailable. Files opened in the viewer are parsed locally in the browser;
+into `icon/Texture2D/`. Existing icons are preserved. Commit the downloaded icons
+with metadata updates so GitHub Pages and the Worker each deploy their own copy.
+For offline use, run with `--download-icons`. A deployed copy without the required
+icons tries the public CDN, then `icon/missing.png`.
+Files opened in the viewer are parsed locally in the browser;
 HTTP rendering requests are processed by the deployed Worker.
 
 Ordinary material icons load on demand from the CDN. To keep particular rewards

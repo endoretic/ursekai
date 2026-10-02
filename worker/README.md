@@ -16,9 +16,9 @@ npm run deploy
 
 Use the `workers.dev` address printed by Wrangler as `BASE_URL` below. GitHub Pages
 continues to serve the static viewer; it cannot execute these HTTP endpoints.
-The build copies tracked viewer assets and PNG files from `icon/Texture2D`, including
-downloaded icons ignored by Git. Local samples and settings are excluded. Download
-icons before deploying; the CDN fallback may be unavailable to the cloud browser.
+The build copies tracked viewer assets, including PNG files from `icon/Texture2D`.
+Download and commit required icons before deploying so GitHub Pages and the Worker
+each carry their own assets. Local samples and settings are excluded.
 Wrangler creates the SQLite-backed
 Durable Object used for daily timing counters; it does not store map data or images.
 
