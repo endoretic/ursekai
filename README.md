@@ -91,6 +91,21 @@ Each map row contains `[siteId, fixtures, drops]`. Fixture rows contain
 `[resourceType, resourceId, x, z, hp, sequence, status, quantity, ...]`.
 Other JSON layouts are rejected with an error.
 
+## HTTP Automation
+
+The public renderer is hosted at
+[ursekai-xray-renderer.endoretic.workers.dev](https://ursekai-xray-renderer.endoretic.workers.dev).
+Both endpoints are public and require no access token or browser visit:
+
+- `POST /api/load` with `{"url":"https://example.com/maps.json"}` loads compact JSON from a URL.
+- `POST /api/render` with that JSON returns four PNG images as Base64, one per map.
+
+The renderer requires all four site IDs (5, 6, 7, 8). See the [Worker guide](worker/README.md) for
+deployment, request examples, response fields, and iPhone Shortcuts steps. These
+endpoints run at the deployed Worker's address; the GitHub Pages viewer stays static.
+`GET /api/usage` reports the shared daily budget. Rendering pauses at 90% of the
+Free plan's daily browser allowance and resumes at the next UTC day.
+
 ## Item Types and Colors
 
 The tool uses color coding to distinguish between different material types:
@@ -133,7 +148,8 @@ into `icon/Texture2D/`. Existing icons are preserved. New game assets are ignore
 Git; do not force-add them. For offline use, run with `--download-icons`. A deployed
 copy without these local downloads tries the public CDN, then `icon/missing.png`.
 Include locally downloaded icons in your private/static deployment if CDN access
-is unavailable. Uploaded game data is parsed locally in the browser.
+is unavailable. Files opened in the viewer are parsed locally in the browser;
+HTTP rendering requests are processed by the deployed Worker.
 
 Ordinary material icons load on demand from the CDN. To keep particular rewards
 available offline, append `--material-id 179 --material-id 201` (replace IDs with
