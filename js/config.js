@@ -1,3 +1,5 @@
+import { ITEM_CATALOG, HARVEST_FIXTURE_TYPES } from './masterdata.js';
+
 // Scene configuration - per-scene coordinate transformation parameters
 export const SCENES = {
     scene1: {
@@ -38,160 +40,82 @@ export const SCENES = {
     }
 };
 
-// Fixture color mapping for different fixture types
+// Keep the existing palette while deriving current fixture IDs from JP master data.
+const FIXTURE_TYPE_COLORS = {
+    treasure_box_transport: '#f9f9f9',
+    treasure_box_fixed: '#f9f9f9',
+    wood: '#8B6F47',
+    mineral: '#878685',
+    toolbox: '#4A90E2',
+    plant: '#ffd380',
+    other: '#f6f5f2',
+    driftage: '#6f4e37',
+    tone: '#a5d9ff',
+    birthday_plant: '#f8729a'
+};
+
+export const DEFAULT_FIXTURE_COLOR = '#6464FF';
 export const FIXTURE_COLORS = {
-    112:  '#f9f9f9',
-
-    1001: '#8B6F47', // wood
-    1002: '#8B6F47',
-    1003: '#8B6F47',
-    1004: '#8B6F47',
-
-    2001: '#878685', // iron
-    2002: '#d5750a', // copper
-    2003: '#d5d5d5', // stone
+    ...Object.fromEntries(Object.entries(HARVEST_FIXTURE_TYPES).map(([id, type]) =>
+        [id, FIXTURE_TYPE_COLORS[type] || DEFAULT_FIXTURE_COLOR]
+    )),
+    2002: '#d5750a',
+    2003: '#d5d5d5',
     2004: '#a7c7cb',
     2005: '#9933cc',
-
-    3001: '#4A90E2',
-
-    4001: '#ffd380', // flower
-    4002: '#ffd380',
-    4003: '#ffd380',
-    4004: '#ffd380',
-    4005: '#ffd380',
-    4006: '#ffd380',
-    4007: '#ffd380',
-    4008: '#ffd380',
-    4009: '#ffd380', // cotton
-    4010: '#ffd380',
-    4011: '#ffd380',
-    4012: '#ffd380',
-    4013: '#ffd380',
-    4014: '#ffd380',
-    4015: '#ffd380',
-    4016: '#ffd380',
-    4017: '#ffd380',
+    // Preserve legacy IDs for older payloads.
     4018: '#ffd380',
     4019: '#ffd380',
-    4020: '#ffd380',
-
-    5001: '#f6f5f2',
-    5002: '#f6f5f2',
-    5003: '#f6f5f2',
-    5004: '#f6f5f2',
-    5101: '#f6f5f2',
-    5102: '#f6f5f2',
-    5103: '#f6f5f2',
-    5104: '#f6f5f2',
-
-    6001: '#6f4e37',
-
-    7001: '#a5d9ff',
+    4020: '#ffd380'
 };
 
-// Item texture mapping - maps item IDs to their texture asset paths
+export function getFixtureColor(fixtureId) {
+    return FIXTURE_COLORS[fixtureId] || DEFAULT_FIXTURE_COLOR;
+}
+
+export const MISSING_TEXTURE = './icon/missing.png';
+export const ITEM_ASSET_BASE_URL = 'https://storage.sekai.best/sekai-jp-assets';
+export const MUSIC_RECORD_TEXTURE = './icon/Texture2D/item_surplus_music_record.png';
 export const ITEM_TEXTURES = {
-    mysekai_material: {
-        "1": "./icon/Texture2D/item_wood_1.png",
-        "2": "./icon/Texture2D/item_wood_2.png",
-        "3": "./icon/Texture2D/item_wood_3.png",
-        "4": "./icon/Texture2D/item_wood_4.png",
-        "5": "./icon/Texture2D/item_wood_5.png",
-        "6": "./icon/Texture2D/item_mineral_1.png",
-        "7": "./icon/Texture2D/item_mineral_2.png",
-        "8": "./icon/Texture2D/item_mineral_3.png",
-        "9": "./icon/Texture2D/item_mineral_4.png",
-        "10": "./icon/Texture2D/item_mineral_5.png",
-        "11": "./icon/Texture2D/item_mineral_6.png",
-        "12": "./icon/Texture2D/item_mineral_7.png",
-        "13": "./icon/Texture2D/item_junk_1.png",
-        "14": "./icon/Texture2D/item_junk_2.png",
-        "15": "./icon/Texture2D/item_junk_3.png",
-        "16": "./icon/Texture2D/item_junk_4.png",
-        "17": "./icon/Texture2D/item_junk_5.png",
-        "18": "./icon/Texture2D/item_junk_6.png",
-        "19": "./icon/Texture2D/item_junk_7.png",
-        "20": "./icon/Texture2D/item_plant_1.png",
-        "21": "./icon/Texture2D/item_plant_2.png",
-        "22": "./icon/Texture2D/item_plant_3.png",
-        "23": "./icon/Texture2D/item_plant_4.png",
-        "24": "./icon/Texture2D/item_tone_8.png",
-        "35": "./icon/Texture2D/memoria/item_memoria_1.png",
-        "36": "./icon/Texture2D/memoria/item_memoria_2.png",
-        "37": "./icon/Texture2D/memoria/item_memoria_3.png",
-        "38": "./icon/Texture2D/memoria/item_memoria_4.png",
-        "39": "./icon/Texture2D/memoria/item_memoria_5.png",
-        "40": "./icon/Texture2D/memoria/item_memoria_6.png",
-        "41": "./icon/Texture2D/memoria/item_memoria_7.png",
-        "42": "./icon/Texture2D/memoria/item_memoria_8.png",
-        "43": "./icon/Texture2D/memoria/item_memoria_9.png",
-        "44": "./icon/Texture2D/memoria/item_memoria_10.png",
-        "45": "./icon/Texture2D/memoria/item_memoria_11.png",
-        "46": "./icon/Texture2D/memoria/item_memoria_12.png",
-        "47": "./icon/Texture2D/memoria/item_memoria_13.png",
-        "48": "./icon/Texture2D/memoria/item_memoria_14.png",
-        "49": "./icon/Texture2D/memoria/item_memoria_15.png",
-        "50": "./icon/Texture2D/memoria/item_memoria_16.png",
-        "51": "./icon/Texture2D/memoria/item_memoria_17.png",
-        "52": "./icon/Texture2D/memoria/item_memoria_18.png",
-        "53": "./icon/Texture2D/memoria/item_memoria_19.png",
-        "54": "./icon/Texture2D/memoria/item_memoria_20.png",
-        "55": "./icon/Texture2D/memoria/item_memoria_21.png",
-        "56": "./icon/Texture2D/memoria/item_memoria_22.png",
-        "57": "./icon/Texture2D/memoria/item_memoria_23.png",
-        "58": "./icon/Texture2D/memoria/item_memoria_24.png",
-        "59": "./icon/Texture2D/memoria/item_memoria_25.png",
-        "60": "./icon/Texture2D/memoria/item_memoria_26.png",
-        "32": "./icon/Texture2D/item_junk_8.png",
-        "33": "./icon/Texture2D/item_mineral_8.png",
-        "34": "./icon/Texture2D/item_junk_9.png",
-        "61": "./icon/Texture2D/item_junk_10.png",
-        "62": "./icon/Texture2D/item_junk_11.png",
-        "63": "./icon/Texture2D/item_junk_12.png",
-        "64": "./icon/Texture2D/item_mineral_9.png",
-        "65": "./icon/Texture2D/item_mineral_10.png",
-        "66": "./icon/Texture2D/item_junk_13.png",
-        "93": "./icon/Texture2D/item_junk_14.png"
-    },
-    mysekai_item: {
-        "7": "./icon/Texture2D/item_blueprint_fragment.png"
-    },
-    mysekai_fixture: {
-        "118": "./icon/Texture2D/mdl_non1001_before_sapling1_118.png",
-        "119": "./icon/Texture2D/mdl_non1001_before_sapling1_119.png",
-        "120": "./icon/Texture2D/mdl_non1001_before_sapling1_120.png",
-        "121": "./icon/Texture2D/mdl_non1001_before_sapling1_121.png",
-        "126": "./icon/Texture2D/mdl_non1001_before_sprout1_126.png",
-        "127": "./icon/Texture2D/mdl_non1001_before_sprout1_127.png",
-        "128": "./icon/Texture2D/mdl_non1001_before_sprout1_128.png",
-        "129": "./icon/Texture2D/mdl_non1001_before_sprout1_129.png",
-        "130": "./icon/Texture2D/mdl_non1001_before_sprout1_130.png",
-        "474": "./icon/Texture2D/mdl_non1001_before_sprout1_474.png",
-        "475": "./icon/Texture2D/mdl_non1001_before_sprout1_475.png",
-        "476": "./icon/Texture2D/mdl_non1001_before_sprout1_476.png",
-        "477": "./icon/Texture2D/mdl_non1001_before_sprout1_477.png",
-        "478": "./icon/Texture2D/mdl_non1001_before_sprout1_478.png",
-        "479": "./icon/Texture2D/mdl_non1001_before_sprout1_479.png",
-        "480": "./icon/Texture2D/mdl_non1001_before_sprout1_480.png",
-        "481": "./icon/Texture2D/mdl_non1001_before_sprout1_481.png",
-        "482": "./icon/Texture2D/mdl_non1001_before_sprout1_482.png",
-        "483": "./icon/Texture2D/mdl_non1001_before_sprout1_483.png"
-    },
-    mysekai_music_record: {
-        "352": "./icon/Texture2D/item_surplus_music_record.png"
-    }
+    ...Object.fromEntries(Object.entries(ITEM_CATALOG).map(([category, items]) => [
+        category,
+        Object.fromEntries(Object.entries(items).map(([id, item]) => [id, `./icon/Texture2D/${item.icon}`]))
+    ])),
+    mysekai_music_record: { 352: MUSIC_RECORD_TEXTURE }
 };
 
-// Rare item rarity tier definitions
+export function getItemTexture(category, itemId) {
+    if (category === 'mysekai_music_record') return MUSIC_RECORD_TEXTURE;
+    return ITEM_TEXTURES[category]?.[itemId] || MISSING_TEXTURE;
+}
+
+export function getRemoteItemTexture(category, itemId) {
+    if (category === 'mysekai_music_record') {
+        return `${ITEM_ASSET_BASE_URL}/mysekai/thumbnail/item/item_surplus_music_record.png`;
+    }
+    const item = ITEM_CATALOG[category]?.[itemId];
+    return item ? `${ITEM_ASSET_BASE_URL}/${item.folder}/${item.remoteIcon || item.icon}` : MISSING_TEXTURE;
+}
+
+export function getItemName(category, itemId) {
+    if (category === 'mysekai_music_record') return `Music record #${itemId}`;
+    return ITEM_CATALOG[category]?.[itemId]?.name || `${category} #${itemId}`;
+}
+
+// Game rarity 4 denotes Memoria, which stays outside the existing rare-material filter.
 export const RARE_ITEM = {
-    mysekai_material: [5, 12, 20, 24, 32, 33, 61, 62, 63, 64, 65, 66, 93],
+    mysekai_material: [...new Set([
+        ...Object.entries(ITEM_CATALOG.mysekai_material)
+            .filter(([, item]) => ['rarity_2', 'rarity_3'].includes(item.rarity))
+            .map(([id]) => Number(id)),
+        24
+    ])],
     mysekai_item: [7],
     mysekai_music_record: [],
     mysekai_fixture: [118, 119, 120, 121]
 };
 
-// Super rare item definitions (highest rarity tier)
+// Preserve the viewer's special highlight policy rather than treating Memoria as super rare.
 export const SUPER_RARE_ITEM = {
     mysekai_material: [5, 12, 20, 24],
     mysekai_item: [],

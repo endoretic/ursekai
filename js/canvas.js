@@ -3,7 +3,8 @@
  * Handles all canvas drawing and rendering
  */
 
-import { FIXTURE_COLORS, ITEM_TEXTURES, RARE_ITEM, SUPER_RARE_ITEM } from './config.js';
+import { getFixtureColor, RARE_ITEM, SUPER_RARE_ITEM } from './config.js';
+import { setItemImage } from './itemImages.js';
 import { domElements, canvasState, domLayoutState, canvasOptimizationState, aggregationState, dragState, displayModeState } from './state.js';
 import { shouldShowItem } from './filters.js';
 
@@ -371,7 +372,7 @@ export function markPoint(point, fragment) {
         return;
     }
 
-    const color = FIXTURE_COLORS[point.fixtureId];
+    const color = getFixtureColor(point.fixtureId);
     const isAggregated = point.isAggregated || false;
     const aggregatedCount = point.aggregatedCount || 1;
 
@@ -507,16 +508,9 @@ export function displayReward(reward, x, y, ifContainRareItem, fragment, isAggre
             // Do NOT multiply quantity for aggregated cards
             // Count badge provides visual indicator instead
 
-            const texture = ITEM_TEXTURES[category]?.[itemId] || './icon/missing.png';
-
             const itemEntry = document.createElement('div');
             const itemImage = document.createElement('img');
-
-            if (category == "mysekai_music_record") {
-                itemImage.src = './icon/Texture2D/item_surplus_music_record.png';
-            } else {
-                itemImage.src = texture;
-            }
+            setItemImage(itemImage, category, itemId);
 
             itemImage.style.cursor = 'pointer';
             // Store data attributes for event delegation

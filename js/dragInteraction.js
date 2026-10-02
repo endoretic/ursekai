@@ -4,7 +4,7 @@
  */
 
 import { dragState, domElements, sceneState, canvasState, domLayoutState } from './state.js';
-import { FIXTURE_COLORS } from './config.js';
+import { getFixtureColor } from './config.js';
 import { hideItemPreview } from './ui.js';
 import { getImageScale } from './canvas.js';
 
@@ -484,7 +484,7 @@ function drawConnectionLines() {
     const cardCenterY = cardActualY + cardHeight / 2;
 
     // Get fixture color
-    const fixtureColor = dragState.fixtureId ? FIXTURE_COLORS[dragState.fixtureId] : '#6464FF';
+    const fixtureColor = getFixtureColor(dragState.fixtureId);
     const isValidColor = fixtureColor && fixtureColor.match(/^#[0-9a-fA-F]{6}$/);
     const rgbColor = isValidColor ? fixtureColor : '#6464FF';
 

@@ -4,7 +4,8 @@
  */
 
 import { RARE_ITEM, SUPER_RARE_ITEM, ITEM_TEXTURES } from './config.js';
-import { filterState, FILTER_DEBOUNCE_DELAY } from './state.js';
+import { filterState, sceneState, FILTER_DEBOUNCE_DELAY } from './state.js';
+import { setItemImage } from './itemImages.js';
 
 // Callback for redrawing points - set by ui.js during initialization
 let onFilterChange = null;
@@ -59,16 +60,26 @@ export function changeFilterMode() {
  */
 export function initializeItemCheckboxes() {
     const container = document.getElementById('itemCheckboxContainer');
-    if (container.children.length > 0) return; // Already initialized
-
-    const allItems = [];
+    container.replaceChildren();
+    const allItems = new Map();
 
     // Collect all items
     for (const category in ITEM_TEXTURES) {
+        // Ordinary materials include unrelated shop/event items; offer only those in the uploaded maps.
+        if (category === 'material') continue;
         for (const itemId in ITEM_TEXTURES[category]) {
-            allItems.push({ category, itemId, path: ITEM_TEXTURES[category][itemId] });
+            allItems.set(`${category}:${itemId}`, { category, itemId });
         }
     }
+
+    // Include actual record IDs and unknown future drops so they remain selectable.
+    Object.values(sceneState.harvestData).flat().forEach(point => {
+        for (const [category, rewards] of Object.entries(point.reward)) {
+            for (const itemId of Object.keys(rewards)) {
+                allItems.set(`${category}:${itemId}`, { category, itemId });
+            }
+        }
+    });
 
     // Create checkboxes
     allItems.forEach(item => {
@@ -80,6 +91,7 @@ export function initializeItemCheckboxes() {
         input.type = 'checkbox';
         input.id = inputId;
         input.value = `${item.category}:${item.itemId}`;
+        input.checked = filterState.selectedItems.has(input.value);
         input.onchange = (e) => {
             if (e.target.checked) {
                 filterState.selectedItems.add(e.target.value);
@@ -99,8 +111,8 @@ export function initializeItemCheckboxes() {
         label.htmlFor = inputId;
 
         const img = document.createElement('img');
-        img.src = item.path;
-        img.onerror = function() { this.style.display = 'none'; };
+        setItemImage(img, item.category, item.itemId);
+        input.setAttribute('aria-label', img.alt);
 
         label.appendChild(img);
 
