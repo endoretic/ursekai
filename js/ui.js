@@ -12,7 +12,7 @@ let previewAutoHideTimer = null;
 let lastTouchPreviewTime = 0;
 import { initCanvas, drawGrid, markPoint, displayReward, processPendingItemPositions, adjustItemListPositions, clearItemLists, clearDirtyRegions, calculateDirtyRegions, clearGrid, aggregatePoints } from './canvas.js';
 import { changeFilterMode, toggleFilterPanel, doContainsRareItem, shouldShowItem, setFilterChangeCallback } from './filters.js';
-import { handleFileUpload } from './dataParser.js';
+import { handleFileUpload, parseMapData } from './dataParser.js';
 import { initializeDragInteraction, setCurrentScene, refreshOverlayCanvas } from './dragInteraction.js';
 
 /**
@@ -178,13 +178,11 @@ export function parseAndMarkPoints() {
         }
         document.querySelector('.image-container').appendChild(fragment);
 
-        // Process positions after DOM rendering
-        requestAnimationFrame(() => {
-            processPendingItemPositions();
-            if (displayPoints.length < 300) {
-                adjustItemListPositions(5, 5);
-            }
-        });
+        // Layout reads flush the inserted cards, including in a headless renderer.
+        processPendingItemPositions();
+        if (displayPoints.length < 300) {
+            adjustItemListPositions(5, 5);
+        }
 
         const aggregatedCount = cardPoints.filter(p => p.isAggregated).length;
         logger(`Marked ${points.length} fixtures (${aggregatedCount} aggregated into ${cardPoints.length} cards)`);
@@ -196,6 +194,7 @@ export function parseAndMarkPoints() {
         canvasOptimizationState.lastRenderedPoints = points.map(p => ({ location: [...p.location] }));
     } catch (error) {
         logger("Error marking points: " + error.message);
+        if (document.body.classList.contains('render-mode')) throw error;
     }
 }
 
@@ -237,7 +236,7 @@ export function updateSceneButtonStatus() {
 /**
  * Select and display a scene
  */
-export function selectScene(sceneKey) {
+export async function selectScene(sceneKey) {
     sceneState.currentScene = sceneKey;
     const selectedScene = SCENES[sceneKey];
 
@@ -260,30 +259,19 @@ export function selectScene(sceneKey) {
 
         logger(`Scene changed: ${sceneKey}`);
 
-        // Set image path and wait for loading to complete
+        // Await the actual image so callers can capture this scene deterministically.
         domElements.image.src = selectedScene.imagePath;
-
-        // Wait for image loading before initializing canvas and drawing
-        // Use requestAnimationFrame to ensure DOM layout is stable
-        // This prevents race conditions when sidebar is closed during scene change
-        const initializeCanvasAfterLoad = () => {
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    initCanvas();
-                    parseAndMarkPoints();
-                    refreshOverlayCanvas();
-
-                    // Preload textures for current scene (priority loading)
-                    preloadSceneTextures(sceneKey);
-                });
-            });
-        };
-
-        if (domElements.image.complete) {
-            initializeCanvasAfterLoad();
-        } else {
-            domElements.image.onload = initializeCanvasAfterLoad;
+        try {
+            await domElements.image.decode();
+        } catch (error) {
+            if (sceneState.currentScene !== sceneKey) return;
+            throw error;
         }
+        if (sceneState.currentScene !== sceneKey) return;
+        initCanvas();
+        parseAndMarkPoints();
+        refreshOverlayCanvas();
+        preloadSceneTextures(sceneKey);
     } else {
         logger(`Scene not found: ${sceneKey}`);
     }
@@ -461,6 +449,14 @@ function onDataLoaded(result) {
 
     // Start background preload of all textures after data is loaded
     preloadAllTexturesInBackground();
+}
+
+export function loadJson(gameData) {
+    const data = parseMapData(gameData);
+    const sceneNames = Object.keys(data);
+    if (!sceneNames.length) throw new Error('No scene data found in file');
+    onDataLoaded({ data, sceneNames, fileName: 'JSON data' });
+    return sceneNames;
 }
 
 /**
@@ -799,7 +795,7 @@ export function updateItemSummary() {
 /**
  * Initialize all UI on page load
  */
-export function initializeUI() {
+export async function initializeUI() {
     // Initialize DOM element references
     domElements.image = document.getElementById('image');
     domElements.canvas = document.getElementById('gridCanvas');
@@ -809,10 +805,18 @@ export function initializeUI() {
     domElements.ctx = domElements.canvas.getContext('2d');
 
     // Detect device profile early to tune sizing for mobile
-    detectDeviceProfile();
+    const renderMode = new URLSearchParams(location.search).get('render') === '1';
+    if (renderMode) {
+        domLayoutState.deviceProfile.isMobileViewport = false;
+        applyCardScaleForDevice(domLayoutState.deviceProfile);
+        document.body.classList.add('render-mode');
+    } else {
+        detectDeviceProfile();
+    }
 
     // Initialize display mode state (load from localStorage or use default 'all')
     displayModeState.init();
+    if (renderMode) displayModeState.mode = 'all';
 
     // Set up callback for filter changes
     setFilterChangeCallback(parseAndMarkPoints);
@@ -828,16 +832,17 @@ export function initializeUI() {
     initializeDragInteraction();
 
     // Initialize first scene (this will load image and set up canvas)
-    selectScene('scene1');
+    await selectScene('scene1');
 
     // Show upload modal on page load
-    openDropZoneModal();
+    if (!renderMode) openDropZoneModal();
 }
 
 // Window resize handler
 let resizeTimeout;
 
 function scheduleViewportRefresh(delay = 400) {
+    if (document.body.classList.contains('render-mode')) return;
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
         const profileChanged = detectDeviceProfile();
@@ -894,11 +899,15 @@ window.addEventListener('orientationchange', () => {
 });
 
 // Initialize on page load
-window.addEventListener('load', initializeUI);
+const ready = new Promise((resolve, reject) => {
+    window.addEventListener('load', () => initializeUI().then(resolve, reject), { once: true });
+});
+ready.catch(error => logger(`Initialization failed: ${error.message}`));
+window.MySekaiXray = { ready, loadJson, selectScene };
 
 // Export functions to window for HTML onclick handlers and global access
 window.logger = logger;
-window.selectScene = selectScene;
+window.selectScene = sceneKey => selectScene(sceneKey).catch(error => showDataErrorIndicator(error.message));
 window.setDirection = setDirection;
 window.drawGrid = drawGrid;
 window.clearGrid = clearGrid;

@@ -52,6 +52,16 @@ body {
     transform: translateY(-5px);
 }
 
+.render-mode .image-container {
+    transform: none;
+    transition: none;
+}
+
+.render-mode .menu-toggle,
+.render-mode .data-loaded-indicator {
+    display: none;
+}
+
 .image-container img {
     max-width: 100%;
     height: auto;

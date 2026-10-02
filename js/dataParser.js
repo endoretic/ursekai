@@ -14,6 +14,7 @@ function requireArray(value, minLength = 0) {
 
 // Logger function - defined locally to avoid circular imports
 function logger(message) {
+    if (typeof document === 'undefined') return;
     const logContainer = document.getElementById('logContainer');
     const logEntry = document.createElement('div');
     logEntry.className = 'log-entry';

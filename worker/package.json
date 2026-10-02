@@ -1,0 +1,17 @@
+{
+    "name": "ursekai-xray-renderer",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "node stage-assets.mjs",
+        "dev": "npm run build && wrangler dev",
+        "deploy": "npm run build && wrangler deploy",
+        "check": "node check.mjs"
+    },
+    "dependencies": {
+        "@cloudflare/puppeteer": "1.4.0"
+    },
+    "devDependencies": {
+        "wrangler": "4.147.0"
+    }
+}
