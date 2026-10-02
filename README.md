@@ -6,9 +6,7 @@ A goldminer, visualizer, a cheater (or anything you'd like to call) for ur sekai
 
 I do not provide, nor do I have the methods and capabilities for packet capture and reverse analysis.
 
-Please refer to <https://github.com/mos9527/sssekai> or <https://github.com/Huac233/pjsk-mysekai-xray/tree/never_gonna_give_you_up> for more details.
-
-~~应群友要求，现在强兼了@Huac233的格式。what can i say~~
+Please refer to <https://github.com/mos9527/sssekai> for more details.
 
 ## How to Start
 
@@ -72,21 +70,26 @@ Display in browser
 
 ## Data File Format
 
-Your JSON file should have the following structure:
+Only decrypted API JSON with compact positional harvest rows is supported:
 
 ```json
 {
   "updatedResources": {
     "userMysekaiHarvestMaps": [
-      {
-        "mysekaiSiteId": 5,
-        "userMysekaiSiteHarvestFixtures": [...],
-        "userMysekaiSiteHarvestResourceDrops": [...]
-      }
+      [
+        5,
+        [[1001, -11, -5, 90, "spawned", null]],
+        [["mysekai_material", 1, -11, -5, 1, 1, "before_drop", 2, null]]
+      ]
     ]
   }
 }
 ```
+
+Each map row contains `[siteId, fixtures, drops]`. Fixture rows contain
+`[fixtureId, x, z, hp, status, ...]`; drop rows contain
+`[resourceType, resourceId, x, z, hp, sequence, status, quantity, ...]`.
+Other JSON layouts are rejected with an error.
 
 ## Item Types and Colors
 
@@ -94,20 +97,63 @@ The tool uses color coding to distinguish between different material types:
 
 | Type | Fixture ID Range | Color | Examples |
 |------|------------------|-------|----------|
-| Wood | 1000-1999 | #da6d42 (Brown) | Charcoal, branches |
-| Mineral | 2000-2999 | #878685 (Gray) | Iron ore, copper ore |
-| Plant | 4000-4999 | #f8729a (Pink) | Flowers, cotton |
+| Treasure box | 111-112 | #f9f9f9 (White) | Treasure boxes |
+| Wood | 1000-1999 | #8B6F47 (Brown) | Charcoal, branches |
+| Mineral | 2000-2999 | #878685 (Gray), with mineral-specific accents | Iron ore, copper ore |
+| Toolbox | 3000-3999 | #4A90E2 (Blue) | Tools |
+| Plant | 4000-4999 | #ffd380 (Yellow) | Flowers, cotton |
 | Special | 5000-5999 | #f6f5f2 (White) | Music records |
-| Model | 6000-6999 | #6f4e37 (Brown) | Saplings, etc |
+| Driftage | 6000-6999 | #6f4e37 (Brown) | Driftage |
+| Tone | 7000-7999 | #a5d9ff (Light blue) | Tones |
+| Birthday plant | 8000-8999 | #f8729a (Pink) | Celebration flowers |
 
-## Manual Asset Updates
+## Updating JP Drops and Harvest Fixtures
 
-If the project's icon directory doesn't contain the latest game resources:
+Run from the repository root with Python (standard library only):
 
-1. Check the browser console log (F12) to find missing item IDs
-2. Download the texture from [sekai.best item preview](https://sekai.best/asset_viewer/mysekai/item_preview)
-3. Add the downloaded PNG to `icon/Texture2D/` directory
-4. Register the item ID in `paint_local.html` under the `ITEM_TEXTURES` JSON mapping
+```powershell
+python scripts/update_masterdata.py --download-icons
+```
+
+The updater reads the latest public Japanese master data from
+[Sekai-World/sekai-master-db-diff](https://github.com/Sekai-World/sekai-master-db-diff),
+pins all six tables to the same commit, and writes `js/masterdata.js`. It includes
+materials, items, ungrown plants (the furniture that can drop), and harvest fixture
+types, plus ordinary materials used by birthday/campaign rewards. The generated
+file records the source commit and timestamp. Public master
+data can include entries that are not yet obtainable in game.
+
+To reproduce a specific snapshot, pass `--ref <commit SHA>`. Omit `--download-icons`
+to update metadata only. The checked-in snapshot is from 2026-10-02, commit
+`db430d712d9418d11977d7fa2b188b0babd30071`.
+
+Missing icons are downloaded from Sekai Viewer's
+[current thumbnail directory](https://sekai.best/asset_viewer/mysekai/thumbnail)
+into `icon/Texture2D/`. Existing icons are preserved. New game assets are ignored by
+Git; do not force-add them. For offline use, run with `--download-icons`. A deployed
+copy without these local downloads tries the public CDN, then `icon/missing.png`.
+Include locally downloaded icons in your private/static deployment if CDN access
+is unavailable. Uploaded game data is parsed locally in the browser.
+
+Ordinary material icons load on demand from the CDN. To keep particular rewards
+available offline, append `--material-id 179 --material-id 201` (replace IDs with
+those in your sample) when downloading icons. The custom filter lists only the
+ordinary materials present in the uploaded maps, not the entire game's shop.
+`python icon/clean_up.py` audits local MySekai icons without deleting files.
+
+`js/config.js` derives texture and fixture mappings from the generated catalog.
+It preserves the existing palette and special highlights, uses game rarity 2/3
+for rare materials, and keeps Memoria outside that filter. Unknown future fixtures
+receive a visible default marker. The parser accepts only the compact positional
+harvest rows shown above.
+
+After an update, load a local JSON sample and check all four scenes, item previews,
+rare/custom filters, card dragging, and desktop/mobile layouts. New resource IDs
+in a sample remain selectable in the custom filter even before the next catalog
+update. Do not commit personal test payloads.
+
+For the parser's small dependency-free regression check (Node.js 20+):
+`node scripts/check_parser.mjs`.
 
 ## License
 

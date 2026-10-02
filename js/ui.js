@@ -3,7 +3,8 @@
  * Handles all UI interactions and rendering orchestration
  */
 
-import { SCENES, FIXTURE_COLORS, ITEM_TEXTURES, RARE_ITEM, SUPER_RARE_ITEM, SITE_ID_MAP } from './config.js';
+import { SCENES, getItemTexture } from './config.js';
+import { setItemImage } from './itemImages.js';
 import { canvasState, sceneState, domElements, canvasOptimizationState, filterState, texturePreloadState, displayModeState, domLayoutState, dragState } from './state.js';
 
 const MOBILE_PREVIEW_HIDE_MS = 2200;
@@ -11,7 +12,7 @@ let previewAutoHideTimer = null;
 let lastTouchPreviewTime = 0;
 import { initCanvas, drawGrid, markPoint, displayReward, processPendingItemPositions, adjustItemListPositions, clearItemLists, clearDirtyRegions, calculateDirtyRegions, clearGrid, aggregatePoints } from './canvas.js';
 import { changeFilterMode, toggleFilterPanel, doContainsRareItem, shouldShowItem, setFilterChangeCallback } from './filters.js';
-import { handleFileUpload, processJsonFile } from './dataParser.js';
+import { handleFileUpload } from './dataParser.js';
 import { initializeDragInteraction, setCurrentScene, refreshOverlayCanvas } from './dragInteraction.js';
 
 /**
@@ -603,7 +604,7 @@ export function getSceneTextures(sceneKey) {
             for (const itemId in point.reward[category]) {
                 if (!point.reward[category].hasOwnProperty(itemId)) continue;
 
-                const texture = ITEM_TEXTURES[category]?.[itemId];
+                const texture = getItemTexture(category, itemId);
                 if (texture) {
                     textures.add(texture);
                 }
@@ -689,11 +690,8 @@ export async function preloadAllTexturesInBackground() {
 
     // Get all unique textures across all scenes
     const allTextures = new Set();
-    for (const category in ITEM_TEXTURES) {
-        for (const itemId in ITEM_TEXTURES[category]) {
-            const texture = ITEM_TEXTURES[category][itemId];
-            allTextures.add(texture);
-        }
+    for (const sceneKey of Object.keys(SCENES)) {
+        getSceneTextures(sceneKey).forEach(texture => allTextures.add(texture));
     }
 
     const textureList = Array.from(allTextures);
@@ -751,13 +749,7 @@ export function updateItemSummary() {
                 const quantity = point.reward[category][itemId];
 
                 if (!itemMap[key]) {
-                    let texture = ITEM_TEXTURES[category]?.[itemId] || './icon/missing.png';
-                    if (category === "mysekai_music_record") {
-                        texture = './icon/Texture2D/item_surplus_music_record.png';
-                    }
-
                     itemMap[key] = {
-                        texture: texture,
                         quantity: 0,
                         category: category,
                         itemId: itemId
@@ -775,7 +767,10 @@ export function updateItemSummary() {
         return;
     }
 
-    let html = '<h3>📊 Scene Items Summary</h3><div class="item-summary-content">';
+    const heading = document.createElement('h3');
+    heading.textContent = '📊 Scene Items Summary';
+    const content = document.createElement('div');
+    content.className = 'item-summary-content';
 
     // Sort items by category for better organization
     const sortedItems = Object.values(itemMap).sort((a, b) => {
@@ -786,16 +781,19 @@ export function updateItemSummary() {
     });
 
     sortedItems.forEach(item => {
-        html += `
-            <div class="item-summary-item" title="${item.category} #${item.itemId}">
-                <img src="${item.texture}" alt="${item.category} #${item.itemId}">
-                <span class="item-summary-quantity">×${item.quantity}</span>
-            </div>
-        `;
+        const entry = document.createElement('div');
+        entry.className = 'item-summary-item';
+        const image = document.createElement('img');
+        setItemImage(image, item.category, item.itemId);
+        entry.title = image.alt;
+        const quantity = document.createElement('span');
+        quantity.className = 'item-summary-quantity';
+        quantity.textContent = `×${item.quantity}`;
+        entry.append(image, quantity);
+        content.appendChild(entry);
     });
 
-    html += '</div>';
-    summaryContainer.innerHTML = html;
+    summaryContainer.replaceChildren(heading, content);
 }
 
 /**
