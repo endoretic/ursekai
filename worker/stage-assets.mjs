@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, mkdirSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,10 +12,7 @@ mkdirSync(output, { recursive: true });
 // Only public UI assets enter the deployment; local payloads and settings stay outside it.
 const files = execFileSync('git', ['ls-files', '-z', '--', 'index.html', 'paint_local.html', 'css', 'js', 'img', 'icon'],
     { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean);
-// Downloaded PNG icons are ignored by Git but needed by the cloud browser.
-const icons = readdirSync(resolve(root, 'icon/Texture2D'))
-    .filter(name => name.endsWith('.png')).map(name => `icon/Texture2D/${name}`);
-const assets = [...new Set([...files, ...icons])].filter(file => !file.endsWith('.py'));
+const assets = files.filter(file => !file.endsWith('.py'));
 for (const file of assets) {
     mkdirSync(dirname(resolve(output, file)), { recursive: true });
     cpSync(resolve(root, file), resolve(output, file));

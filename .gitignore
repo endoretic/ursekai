@@ -6,7 +6,6 @@ AGENTS.md
 .claude/
 testdata/
 __pycache__/
-icon/Texture2D/*.png
 icon/Texture2D/*.png.tmp
 worker/node_modules/
 worker/public/
