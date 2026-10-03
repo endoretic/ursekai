@@ -19,6 +19,11 @@ assert.equal((await call('/api/render', { updatedResources: { userMysekaiHarvest
 assert.equal((await call('/api/unknown', data)).status, 404);
 assert.equal((await worker.fetch(new Request('https://maps.example/api/render'), {})).status, 405);
 assert.equal((await call('/api/render', 'x'.repeat(4 * 1024 * 1024))).status, 413);
+assert.equal((await call('/api/render?format=jpeg', {})).status, 400);
+// Both output formats must reserve the same browser budget before launching.
+assert.equal((await call('/api/render?format=jpeg', data)).status, 503);
+assert.equal((await call('/api/render?format=json', data)).status, 503);
+assert.equal((await call('/api/render?format=unknown', data)).status, 400);
 
 const realFetch = globalThis.fetch;
 try {
@@ -105,34 +110,61 @@ try {
 }
 console.log('Budget checks passed: warning at 80%, stop at 90%, throttling, UTC reset and interrupted cleanup.');
 
-// Optional HTTP smoke check: node check.mjs http://localhost:8787 [local JSON file] [output directory]
+// Optional HTTP smoke check: node check.mjs "http://localhost:8787?format=jpeg" [local JSON file] [output directory]
 if (process.argv[2]) {
     const source = process.argv[3] ? JSON.parse(await readFile(process.argv[3], 'utf8')) : data;
     const payload = JSON.stringify({ updatedResources: {
         userMysekaiHarvestMaps: source.updatedResources.userMysekaiHarvestMaps
     } });
     const started = performance.now();
-    const response = await fetch(new URL('/api/render', process.argv[2]), {
+    const endpoint = new URL('/api/render', process.argv[2]);
+    const format = new URL(process.argv[2]).searchParams.get('format');
+    if (format) endpoint.searchParams.set('format', format);
+    const response = await fetch(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload,
         signal: AbortSignal.timeout(180000)
     });
-    const result = await response.json();
     console.log(JSON.stringify({ status: response.status, elapsedSeconds: (performance.now() - started) / 1000 }));
-    assert.equal(response.status, 200, JSON.stringify(result));
-    assert.deepEqual(result.images.map(image => image.siteId), [5, 6, 7, 8]);
     const output = resolve(process.argv[4] || '../testdata/worker-render');
     await mkdir(output, { recursive: true });
-    for (const image of result.images) {
-        const png = Buffer.from(image.base64, 'base64');
-        assert.equal(image.mimeType, 'image/png');
-        assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
-        assert.equal(png.readUInt32BE(16), image.width);
-        assert.equal(png.readUInt32BE(20), image.height);
-        assert.ok(image.width > 500 && image.height > 500);
-        assert.deepEqual(image.missingIcons, [], `Missing icons on map ${image.siteId}`);
-        await writeFile(resolve(output, `${image.siteId}.png`), png);
-        console.log(JSON.stringify({ siteId: image.siteId, width: image.width, height: image.height,
-            bytes: png.length, missingIcons: image.missingIcons }));
+    if (format === 'jpeg') {
+        assert.equal(response.status, 200, response.status !== 200 ? await response.text() : 'Expected JPEG');
+        assert.equal(response.headers.get('Content-Type'), 'image/jpeg');
+        assert.equal(response.headers.get('Cache-Control'), 'no-store');
+        assert.equal(response.headers.get('Access-Control-Allow-Origin'), '*');
+        const picture = Buffer.from(await response.arrayBuffer());
+        assert.equal(picture.subarray(0, 2).toString('hex'), 'ffd8');
+        assert.equal(picture.subarray(-2).toString('hex'), 'ffd9');
+        let dimensions;
+        for (let offset = 2; offset + 9 < picture.length;) {
+            assert.equal(picture[offset], 0xff);
+            const marker = picture[offset + 1];
+            if ([0xc0, 0xc1, 0xc2].includes(marker)) {
+                dimensions = { width: picture.readUInt16BE(offset + 7), height: picture.readUInt16BE(offset + 5) };
+                break;
+            }
+            offset += 2 + picture.readUInt16BE(offset + 2);
+        }
+        assert.equal(dimensions?.width, 3120);
+        assert.equal(dimensions.height, 7020);
+        await writeFile(resolve(output, 'mysekai-maps.jpg'), picture);
+        console.log(JSON.stringify({ ...dimensions, bytes: picture.length, file: resolve(output, 'mysekai-maps.jpg') }));
+    } else {
+        const result = await response.json();
+        assert.equal(response.status, 200, JSON.stringify(result));
+        assert.deepEqual(result.images.map(image => image.siteId), [5, 6, 7, 8]);
+        for (const image of result.images) {
+            const png = Buffer.from(image.base64, 'base64');
+            assert.equal(image.mimeType, 'image/png');
+            assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+            assert.equal(png.readUInt32BE(16), image.width);
+            assert.equal(png.readUInt32BE(20), image.height);
+            assert.ok(image.width > 500 && image.height > 500);
+            assert.deepEqual(image.missingIcons, [], `Missing icons on map ${image.siteId}`);
+            await writeFile(resolve(output, `${image.siteId}.png`), png);
+            console.log(JSON.stringify({ siteId: image.siteId, width: image.width, height: image.height,
+                bytes: png.length, missingIcons: image.missingIcons }));
+        }
+        console.log(`Four PNG files saved to ${output}`);
     }
-    console.log(`Four PNG files saved to ${output}`);
 }
