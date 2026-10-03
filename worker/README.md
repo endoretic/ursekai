@@ -81,6 +81,30 @@ repeat over `images`, Base64 Decode the `base64` value, then Save to Photo Album
 Save File. The output includes the map and item overlays in the viewer's All Cards
 mode. `missingIcons` lists `category:id` entries that used the placeholder.
 
+### One tall image for Shortcuts
+
+Use the same JSON body with `POST /api/render?format=jpeg` to receive a single
+binary `image/jpeg` response instead of Base64 JSON. Maps are stacked vertically
+in site ID order 5, 6, 7, 8. The image uses a 2x pixel density (3120x7020 pixels),
+10px quantity labels, and JPEG quality 92. Labels and icons are rendered at that
+density before capture; backgrounds retain their original 1920x1080 detail.
+
+```sh
+curl "$BASE_URL/api/render?format=jpeg" -H 'Content-Type: application/json' \
+  --data-binary @maps.json -o mysekai-maps.jpg
+```
+
+In Shortcuts, keep the JSON upload steps, change the rendering URL to this one,
+then pass its result directly to Quick Look. Remove the response dictionary,
+`images` loop, and Base64 Decode actions. Nothing needs to be saved to Photos.
+Errors still return JSON; Quick Look can display that response for troubleshooting.
+Unknown output formats return HTTP 400. The default four-PNG JSON response remains
+available with no query parameter or with `format=json`.
+
+The tall image uses one browser session and one final screenshot. It shares the
+same daily budget and timeout as the four-image output. Higher pixel density adds
+rendering work; the output format does not create additional browser sessions.
+
 Responses use `Cache-Control: no-store`; the Worker does not persist payloads or
 images. Files opened in the static viewer stay in the browser. Requests to these
 HTTP endpoints are processed by the Worker and its Browser Run session.

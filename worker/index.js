@@ -87,7 +87,7 @@ async function loadFromUrl(input) {
     return harvestJson(await readJson(response));
 }
 
-async function renderMaps(data, env, origin, durationMs) {
+async function renderMaps(data, env, origin, durationMs, format) {
     const { default: puppeteer } = await import('@cloudflare/puppeteer');
     const started = Date.now();
     const browser = await puppeteer.launch(env.BROWSER);
@@ -101,8 +101,13 @@ async function renderMaps(data, env, origin, durationMs) {
     }, Math.max(1, durationMs - (Date.now() - started)));
     try {
         const page = await browser.newPage();
-        await page.setViewport({ width: 1600, height: 1200, deviceScaleFactor: 1 });
+        const strip = format === 'jpeg';
+        await page.setViewport({ width: 1600, height: 1200, deviceScaleFactor: strip ? 2 : 1 });
         await page.goto(`${origin}/paint_local.html?render=1`, { waitUntil: 'load', timeout: 30000 });
+        if (strip) {
+            await page.addStyleTag({ content: '.render-mode .item-list .quantity { font-size: 10px; }' });
+            await page.evaluate(() => { window.renderPanels = []; });
+        }
         phase = 'initializing the viewer';
         await page.evaluate(async payload => {
             await window.MySekaiXray.ready;
@@ -114,11 +119,28 @@ async function renderMaps(data, env, origin, durationMs) {
             await page.evaluate(scene => window.MySekaiXray.selectScene(scene), map.scene);
             await page.waitForFunction(() => [...document.querySelectorAll('.image-container img')]
                 .every(image => image.complete && image.naturalWidth > 0), { timeout: 20000 });
+            const element = await page.$('.image-container');
+            const bounds = await element.boundingBox();
+            if (strip) {
+                // Keep panels detached while scene switching updates the live viewer.
+                await page.evaluate(({ width, height }) => {
+                    const source = document.querySelector('.image-container');
+                    const panel = source.cloneNode(true);
+                    const canvases = panel.querySelectorAll('canvas');
+                    source.querySelectorAll('canvas').forEach((canvas, index) => {
+                        // cloneNode copies canvas dimensions, but not its pixels.
+                        canvases[index].getContext('2d').drawImage(canvas, 0, 0);
+                    });
+                    panel.style.width = `${width}px`;
+                    panel.style.height = `${height}px`;
+                    panel.style.flexShrink = '0';
+                    window.renderPanels.push(panel);
+                }, bounds);
+                continue;
+            }
             const missing = await page.evaluate(() => [...document.querySelectorAll('.item-list img')]
                 .filter(image => new URL(image.src).pathname.endsWith('/missing.png'))
                 .map(image => `${image.dataset.category}:${image.dataset.itemId}`));
-            const element = await page.$('.image-container');
-            const bounds = await element.boundingBox();
             phase = `capturing map ${map.siteId}`;
             const base64 = await element.screenshot({ type: 'png', encoding: 'base64' });
             images.push({
@@ -126,6 +148,22 @@ async function renderMaps(data, env, origin, durationMs) {
                 mimeType: 'image/png', width: Math.round(bounds.width), height: Math.round(bounds.height),
                 missingIcons: [...new Set(missing)], base64
             });
+        }
+        if (strip) {
+            phase = 'capturing all four maps';
+            await page.evaluate(() => {
+                const stack = document.createElement('div');
+                stack.id = 'render-map-strip';
+                stack.style.cssText = 'display:flex;flex-direction:column;width:max-content;';
+                stack.append(...window.renderPanels);
+                document.body.replaceChildren(stack);
+                document.body.style.cssText = 'margin:0;padding:0;display:block;min-height:0;';
+                delete window.renderPanels;
+            });
+            const element = await page.$('#render-map-strip');
+            const picture = await element.screenshot({ type: 'jpeg', quality: 92, captureBeyondViewport: true });
+            if (timedOut) fail(504, 'Rendering exceeded its time budget');
+            return picture;
         }
         if (timedOut) fail(504, 'Rendering exceeded its time budget');
         return { images };
@@ -215,14 +253,19 @@ function budgetForToday(env) {
     return env.RENDER_BUDGET.get(env.RENDER_BUDGET.idFromName(new Date().toISOString().slice(0, 10)));
 }
 
-async function renderWithBudget(data, env, origin) {
+async function renderWithBudget(data, env, origin, format) {
     const budget = budgetForToday(env);
     const reservationResponse = await budget.fetch('https://budget/reserve', { method: 'POST' });
     if (!reservationResponse.ok) return reservationResponse;
     const reservation = await reservationResponse.json();
     let closed = true;
     try {
-        return json(await renderMaps(data, env, origin, reservation.durationMs));
+        const result = await renderMaps(data, env, origin, reservation.durationMs, format);
+        if (format === 'jpeg') return new Response(result, { headers: {
+            ...API_HEADERS, 'Content-Type': 'image/jpeg',
+            'Content-Disposition': 'inline; filename="mysekai-maps.jpg"'
+        } });
+        return json(result);
     } catch (error) {
         closed = !error.closeFailed;
         throw error;
@@ -249,7 +292,9 @@ export default {
             const input = await readJson(request);
             if (!input || typeof input !== 'object') fail(400, 'A JSON object is required');
             if (url.pathname === '/api/load') return json(await loadFromUrl(input));
-            return await renderWithBudget(harvestJson(input, true), env, url.origin);
+            const format = url.searchParams.get('format') || 'json';
+            if (!['json', 'jpeg'].includes(format)) fail(400, 'Render format must be json or jpeg');
+            return await renderWithBudget(harvestJson(input, true), env, url.origin, format);
         } catch (error) {
             return json({ error: error.status ? error.message : 'Rendering failed' }, error.status || 502);
         }
