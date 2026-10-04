@@ -3,120 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#12131f">
     <meta name="robots" content="noindex, nofollow, noarchive">
-    <title>Project SEKAI - MySekai Xray</title>
-    <link rel="stylesheet" href="css/styles.css">
-    <!-- Modular architecture: config, state, dataParser, canvas, filters, ui -->
-    <!-- config.js is now imported as an ES6 module from ui.js -->
+    <title>ursekai xray · MySekai maps</title>
+    <link rel="stylesheet" href="css/styles.css?v=20261004">
+    <script>
+        // The HTTP renderer uses system fonts and avoids an external font request.
+        if (new URLSearchParams(location.search).get('render') !== '1') {
+            const fonts = document.createElement('link');
+            fonts.rel = 'stylesheet';
+            fonts.href = 'https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500'
+                + '&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@500;600;700'
+                + '&family=Space+Grotesk:wght@500;600;700&display=swap';
+            document.head.appendChild(fonts);
+        }
+    </script>
     <script type="module" src="js/ui.js"></script>
 </head>
 <body>
-    <!-- Drop Zone Modal -->
+    <div class="app-shell">
+        <header class="topbar">
+            <a class="brand" href="paint_local.html" aria-label="ursekai xray home">
+                <span class="brand-mark" aria-hidden="true">⌖</span>
+                <span class="brand-name">ur<span>sekai</span> xray</span>
+            </a>
+            <div class="header-actions">
+                <a class="source-link" href="https://github.com/endoretic/ursekai-xray"
+                    target="_blank" rel="noopener">GitHub</a>
+                <button class="menu-toggle secondary-button" onclick="window.toggleSidebar?.()"
+                    aria-controls="sidebar" aria-expanded="false" aria-label="Open map controls">☰</button>
+                <button class="primary-button" onclick="window.openDropZoneModal?.()">
+                    <span aria-hidden="true">↥</span> Load JSON
+                </button>
+            </div>
+        </header>
+
+        <section class="page-intro" aria-labelledby="pageTitle">
+            <h1 id="pageTitle">MySekai <span>map</span></h1>
+            <p>Find your drops across all four maps.<br>Load your MySekai JSON to get started.</p>
+        </section>
+
+        <div class="sidebar-overlay" onclick="window.closeSidebar?.()" id="sidebarOverlay"></div>
+        <div class="workspace">
+            <aside class="sidebar" id="sidebar" aria-label="Map controls">
+                <div class="sidebar-header">
+                    <h2>Map controls</h2>
+                    <button class="sidebar-close icon-button" onclick="window.closeSidebar?.()"
+                        aria-label="Close map controls">×</button>
+                </div>
+                <div class="sidebar-content" id="sidebarContent">
+                    <div class="controls">
+                        <h3 class="section-label">Maps</h3>
+                        <div class="scene-buttons" aria-label="Select map">
+                            <button onclick="window.selectScene?.('scene1'); window.closeSidebar?.()"
+                                data-scene="scene1" aria-pressed="true">
+                                <span class="scene-label" lang="ja">さいしょの原っぱ</span>
+                                <span class="scene-caption">Grassland</span>
+                            </button>
+                            <button onclick="window.selectScene?.('scene3'); window.closeSidebar?.()"
+                                data-scene="scene3" aria-pressed="false">
+                                <span class="scene-label" lang="ja">願いの砂浜</span>
+                                <span class="scene-caption">Beach</span>
+                            </button>
+                            <button onclick="window.selectScene?.('scene2'); window.closeSidebar?.()"
+                                data-scene="scene2" aria-pressed="false">
+                                <span class="scene-label" lang="ja">彩りの花畑</span>
+                                <span class="scene-caption">Flower garden</span>
+                            </button>
+                            <button onclick="window.selectScene?.('scene4'); window.closeSidebar?.()"
+                                data-scene="scene4" aria-pressed="false">
+                                <span class="scene-label" lang="ja">忘れ去られた場所</span>
+                                <span class="scene-caption">Memorial place</span>
+                            </button>
+                        </div>
+
+                        <p class="map-legend"><span aria-hidden="true">●</span> Super rare drops</p>
+                        <div class="display-mode-toggle">
+                            <h3 class="section-label">Display</h3>
+                            <div class="toggle-buttons" aria-label="Card display mode">
+                                <button class="mode-button active" id="modeAllBtn" aria-pressed="true"
+                                    onclick="window.setDisplayMode?.('all')">All cards</button>
+                                <button class="mode-button" id="modeAggregatedBtn" aria-pressed="false"
+                                    onclick="window.setDisplayMode?.('aggregated')">
+                                    Grouped <span class="beta-badge">β</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button class="filter-button secondary-button" onclick="window.toggleFilterPanel?.()"
+                            aria-controls="filterPanel" aria-expanded="false">Filter items</button>
+                        <div class="filter-panel" id="filterPanel">
+                            <div class="filter-options">
+                                <div class="filter-option">
+                                    <input type="radio" id="filterAll" name="filterMode" value="all" checked
+                                        onchange="window.changeFilterMode?.()">
+                                    <label for="filterAll">All items</label>
+                                </div>
+                                <div class="filter-option">
+                                    <input type="radio" id="filterRare" name="filterMode" value="rare"
+                                        onchange="window.changeFilterMode?.()">
+                                    <label for="filterRare">Rare items only</label>
+                                </div>
+                                <div class="filter-option">
+                                    <input type="radio" id="filterCustom" name="filterMode" value="custom"
+                                        onchange="window.changeFilterMode?.()">
+                                    <label for="filterCustom">Choose items</label>
+                                </div>
+                            </div>
+                            <div id="itemCheckboxContainer" class="item-checkbox-list"></div>
+                        </div>
+
+                        <details class="advanced-settings">
+                            <summary>Advanced settings</summary>
+                            <div class="calibration-fields">
+                                <label for="physicalWidth">Grid width (px)
+                                    <input type="number" id="physicalWidth" value="10" min="1" step="1">
+                                </label>
+                                <label for="offsetX">X offset (px)
+                                    <input type="number" id="offsetX" value="0" step="1">
+                                </label>
+                                <label for="offsetY">Y offset (px)
+                                    <input type="number" id="offsetY" value="0" step="1">
+                                </label>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="secondary-button" onclick="window.drawGrid?.()">Draw grid</button>
+                                <button class="secondary-button" onclick="window.clearGrid?.()">Clear canvas</button>
+                            </div>
+                            <div class="direction-buttons" aria-label="Coordinate direction">
+                                <button onclick="window.setDirection?.('x+', 'y+')">X+ Y+</button>
+                                <button onclick="window.setDirection?.('x+', 'y-')">X+ Y−</button>
+                                <button onclick="window.setDirection?.('x-', 'y+')">X− Y+</button>
+                                <button onclick="window.setDirection?.('x-', 'y-')">X− Y−</button>
+                            </div>
+                        </details>
+                        <details class="activity-panel">
+                            <summary>Activity</summary>
+                            <div class="log-container">
+                                <div class="log-scroll" id="logContainer" role="log" aria-label="Map activity"></div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="map-panel">
+                <div class="map-toolbar">
+                    <div>
+                        <h2 id="sceneTitle" lang="ja">さいしょの原っぱ</h2>
+                        <p>Drag a card to trace its drop location.</p>
+                    </div>
+                    <span class="data-status" id="dataStatus" role="status">No data loaded</span>
+                </div>
+                <div class="container">
+                    <div class="image-container">
+                        <img alt="Scene background" id="image" draggable="false">
+                        <canvas class="grid-canvas" id="gridCanvas"></canvas>
+                    </div>
+                </div>
+                <section class="item-summary" id="itemSummary" aria-label="Scene item totals">
+                    <div class="item-summary-empty">Load a JSON file to see this map’s item totals.</div>
+                </section>
+            </main>
+        </div>
+
+        <footer class="site-footer">
+            <p>Your JSON stays in this browser.</p>
+            <nav aria-label="Related tools">
+                <a href="https://endoretic.cc/pjsk-tier-maker/" target="_blank" rel="noopener">Tier maker</a>
+                <a href="https://endoretic.github.io/pjsk-gatecalculator/" target="_blank" rel="noopener">
+                    Material planner
+                </a>
+            </nav>
+        </footer>
+    </div>
+
     <div class="drop-zone-backdrop hidden" id="dropZoneBackdrop">
-        <div class="drop-zone" id="dropZone">
-            <button class="drop-zone-close" onclick="window.closeDropZoneModal?.()">✕</button>
+        <div class="drop-zone" id="dropZone" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+            <button class="drop-zone-close icon-button" onclick="window.closeDropZoneModal?.()"
+                aria-label="Close import dialog">×</button>
             <div class="drop-zone-content">
-                <div class="drop-icon">📁</div>
-                <h2>Load Data File</h2>
-                <div class="drop-hint">Drag & drop your JSON file here</div>
-                <div class="or-text">or</div>
-                <button class="file-input-button" onclick="document.getElementById('hiddenFileInput').click()">
-                    Browse Files
-                </button>
+                <div class="drop-icon" aria-hidden="true">↥</div>
+                <h2 id="importTitle">Load your MySekai</h2>
+                <p class="drop-hint">Drop a JSON file here, or choose one from your device.</p>
+                <button class="file-input-button primary-button"
+                    onclick="document.getElementById('hiddenFileInput').click()">Choose JSON file</button>
+                <p class="import-note">The file is read locally in your browser.</p>
             </div>
         </div>
     </div>
-    <input type="file" id="hiddenFileInput" />
-
-    <button class="menu-toggle" onclick="window.toggleSidebar?.()">☰</button>
-    <div class="sidebar-overlay" onclick="window.closeSidebar?.()" id="sidebarOverlay"></div>
-
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h2>Controls</h2>
-            <button class="sidebar-close" onclick="closeSidebar()">✕</button>
-        </div>
-        <div class="sidebar-content" id="sidebarContent">
-        </div>
-    </div>
-
-    <div class="container">
-        <div class="image-container">
-            <img alt="Scene background" id="image" draggable="false">
-            <canvas class="grid-canvas" id="gridCanvas"></canvas>
-        </div>
-    </div>
-
-    <div class="item-summary" id="itemSummary"></div>
-
-    <div class="controls">
-        <div class="scene-buttons">
-            <button onclick="window.selectScene?.('scene1')" data-scene="scene1">さいしょの原っぱ</button>
-            <button onclick="window.selectScene?.('scene2')" data-scene="scene2">彩りの花畑</button>
-            <button onclick="window.selectScene?.('scene3')" data-scene="scene3">願いの砂浜</button>
-            <button onclick="window.selectScene?.('scene4')" data-scene="scene4">忘れ去られた場所</button>
-        </div>
-        <br>
-        <button class="filter-button" onclick="window.openDropZoneModal?.()">📤 Load Data File</button>
-        <button class="filter-button" onclick="window.toggleFilterPanel?.()">🔍 Filter Items</button>
-        <div class="display-mode-toggle">
-            <label>Display Mode:</label>
-            <div class="toggle-buttons">
-                <button class="mode-button active" id="modeAllBtn" onclick="window.setDisplayMode?.('all')">
-                    All Cards
-                </button>
-                <button class="mode-button" id="modeAggregatedBtn" onclick="window.setDisplayMode?.('aggregated')">
-                    Aggregated <span class="beta-badge">β</span>
-                </button>
-            </div>
-        </div>
-        <a
-            class="external-link"
-            href="https://endoretic.github.io/pjsk-gatecalculator/"
-            target="_blank"
-            rel="noopener"
-        >ゲート素材計算機 | Material Planner</a>
-
-
-        <div class="filter-panel" id="filterPanel">
-            <div class="filter-options">
-                <div class="filter-option">
-                    <input type="radio" id="filterAll" name="filterMode" value="all" checked onchange="window.changeFilterMode?.()">
-                    <label for="filterAll">Show All Items</label>
-                </div>
-                <div class="filter-option">
-                    <input type="radio" id="filterRare" name="filterMode" value="rare" onchange="window.changeFilterMode?.()">
-                    <label for="filterRare">Show Rare Items Only</label>
-                </div>
-                <div class="filter-option">
-                    <input type="radio" id="filterCustom" name="filterMode" value="custom" onchange="window.changeFilterMode?.()">
-                    <label for="filterCustom">Show Custom Selected Items</label>
-                </div>
-            </div>
-            <div id="itemCheckboxContainer" class="item-checkbox-list"></div>
-        </div>
-        <div class="log-container">
-            <div class="log-scroll" id="logContainer"></div>
-        </div>
-        <br>
-        <details>
-            <summary>Advance Settings</summary>
-            <label for="physicalWidth">Grid Width(px):</label>
-            <input type="number" id="physicalWidth" value="10" min="1" step="1">
-            <label for="offsetX">X Offset(px):</label>
-            <input type="number" id="offsetX" value="0" step="1">
-            <label for="offsetY">Y Offset(px):</label>
-            <input type="number" id="offsetY" value="0" step="1">
-            <button onclick="window.drawGrid?.()">Draw Grid</button>
-            <button onclick="window.clearGrid?.()">Clear Canvas</button>
-            <br>
-            <div class="direction-buttons">
-                <button onclick="window.setDirection?.('x+', 'y+')">X+ Y+</button>
-                <button onclick="window.setDirection?.('x+', 'y-')">X+ Y-</button>
-                <button onclick="window.setDirection?.('x-', 'y+')">X- Y+</button>
-                <button onclick="window.setDirection?.('x-', 'y-')">X- Y-</button>
-            </div>
-        </details>
-    </div>
+    <input type="file" id="hiddenFileInput" accept="application/json,.json,.octet-stream">
 </body>
 </html>

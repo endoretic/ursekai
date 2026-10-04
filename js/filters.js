@@ -133,6 +133,8 @@ export function initializeItemCheckboxes() {
 export function toggleFilterPanel() {
     const filterPanel = document.getElementById('filterPanel');
     filterPanel.classList.toggle('active');
+    document.querySelector('.filter-button').setAttribute('aria-expanded',
+        String(filterPanel.classList.contains('active')));
     if (filterPanel.classList.contains('active')) {
         initializeItemCheckboxes();
     }

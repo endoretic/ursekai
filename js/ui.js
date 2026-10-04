@@ -218,6 +218,7 @@ export function updateSceneButtonStatus() {
 
         // Remove previous super-rare styling
         button.classList.remove('super-rare');
+        button.title = '';
 
         if (points && Array.isArray(points)) {
             // Check if scene has super rare items
@@ -227,6 +228,7 @@ export function updateSceneButtonStatus() {
 
             if (hasSuperRare) {
                 button.classList.add('super-rare');
+                button.title = 'Contains super rare drops';
                 logger(`Scene ${sceneName} has super rare items!`);
             }
         }
@@ -244,8 +246,12 @@ export async function selectScene(sceneKey) {
         // Update button state
         document.querySelectorAll('.scene-buttons button').forEach(btn => {
             btn.classList.remove('active');
+            btn.setAttribute('aria-pressed', 'false');
         });
-        document.querySelector(`button[data-scene="${sceneKey}"]`).classList.add('active');
+        const sceneButton = document.querySelector(`button[data-scene="${sceneKey}"]`);
+        sceneButton.classList.add('active');
+        sceneButton.setAttribute('aria-pressed', 'true');
+        document.getElementById('sceneTitle').textContent = sceneButton.querySelector('.scene-label').textContent;
 
         domElements.physicalWidthInput.value = selectedScene.physicalWidth;
         domElements.offsetXInput.value = selectedScene.offsetX;
@@ -367,7 +373,10 @@ export function toggleSidebar() {
     const menuToggle = document.querySelector('.menu-toggle');
     sidebar.classList.toggle('active');
     overlay.classList.toggle('active');
-    menuToggle.style.display = sidebar.classList.contains('active') ? 'none' : 'flex';
+    menuToggle.setAttribute('aria-expanded', String(sidebar.classList.contains('active')));
+    if (sidebar.classList.contains('active')) {
+        requestAnimationFrame(() => sidebar.querySelector('.sidebar-close').focus());
+    }
 }
 
 /**
@@ -377,29 +386,24 @@ export function closeSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     const menuToggle = document.querySelector('.menu-toggle');
+    const wasOpen = sidebar.classList.contains('active');
     sidebar.classList.remove('active');
     overlay.classList.remove('active');
-    menuToggle.style.display = 'flex';
+    menuToggle.setAttribute('aria-expanded', 'false');
+    if (wasOpen) menuToggle.focus();
 }
 
-/**
- * Initialize sidebar
- */
-export function initializeSidebar() {
-    const sidebarContent = document.getElementById('sidebarContent');
-    const controlsDiv = document.querySelector('.controls');
-
-    if (sidebarContent.innerHTML.trim() === '') {
-        sidebarContent.innerHTML = controlsDiv.innerHTML;
-    }
-}
+let importTrigger;
 
 /**
  * Open drop zone modal
  */
 export function openDropZoneModal() {
+    importTrigger = document.activeElement;
     const backdrop = document.getElementById('dropZoneBackdrop');
     backdrop.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    backdrop.querySelector('.file-input-button').focus();
 }
 
 /**
@@ -408,6 +412,8 @@ export function openDropZoneModal() {
 export function closeDropZoneModal() {
     const backdrop = document.getElementById('dropZoneBackdrop');
     backdrop.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+    importTrigger?.focus();
 }
 
 /**
@@ -442,6 +448,10 @@ function onDataLoaded(result) {
     sceneState.dataLoadedFromFile = true;
 
     // Update UI
+    const status = document.getElementById('dataStatus');
+    status.textContent = result.fileName;
+    status.title = result.fileName;
+    status.classList.add('is-loaded');
     updateSceneButtonStatus();
     parseAndMarkPoints();
     closeDropZoneModal();
@@ -764,7 +774,7 @@ export function updateItemSummary() {
     }
 
     const heading = document.createElement('h3');
-    heading.textContent = '📊 Scene Items Summary';
+    heading.textContent = 'Scene item totals';
     const content = document.createElement('div');
     content.className = 'item-summary-content';
 
@@ -822,9 +832,7 @@ export async function initializeUI() {
     setFilterChangeCallback(parseAndMarkPoints);
 
     logger('Page loaded. Please load a data file to continue.');
-    initializeSidebar();
 
-    // Update display mode button UI AFTER sidebar is initialized
     updateDisplayModeButtonUI();
 
     initializeDropZone();
@@ -834,8 +842,6 @@ export async function initializeUI() {
     // Initialize first scene (this will load image and set up canvas)
     await selectScene('scene1');
 
-    // Show upload modal on page load
-    if (!renderMode) openDropZoneModal();
 }
 
 // Window resize handler
@@ -870,6 +876,8 @@ function updateDisplayModeButtonUI() {
         allBtn.classList.remove('active');
         aggBtn.classList.add('active');
     }
+    allBtn.setAttribute('aria-pressed', String(displayModeState.mode === 'all'));
+    aggBtn.setAttribute('aria-pressed', String(displayModeState.mode === 'aggregated'));
 }
 
 /**
@@ -896,6 +904,36 @@ window.addEventListener('resize', () => {
 // Orientation changes on mobile can report as resize; handle explicitly for clarity
 window.addEventListener('orientationchange', () => {
     scheduleViewportRefresh(300);
+});
+
+window.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' && event.key !== 'Tab') return;
+    const importing = !document.getElementById('dropZoneBackdrop').classList.contains('hidden');
+    const sidebar = document.getElementById('sidebar');
+    const drawerOpen = sidebar.classList.contains('active')
+        && getComputedStyle(document.getElementById('sidebarOverlay')).display !== 'none';
+    const panel = importing ? document.getElementById('dropZone')
+        : drawerOpen ? sidebar : null;
+    if (!panel) return;
+    if (event.key === 'Escape') {
+        if (importing) closeDropZoneModal();
+        else closeSidebar();
+    } else if (event.key === 'Tab') {
+        const controls = [...panel.querySelectorAll('button, input, summary')]
+            .filter(element => element.getClientRects().length > 0);
+        const first = controls[0];
+        const last = controls.at(-1);
+        if (!panel.contains(document.activeElement)) {
+            event.preventDefault();
+            (event.shiftKey ? last : first)?.focus();
+        } else if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first?.focus();
+        }
+    }
 });
 
 // Initialize on page load
