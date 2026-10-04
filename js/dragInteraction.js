@@ -6,7 +6,7 @@
 import { dragState, domElements, sceneState, canvasState, domLayoutState } from './state.js';
 import { getFixtureColor } from './config.js';
 import { hideItemPreview } from './ui.js';
-import { getImageScale } from './canvas.js';
+import { getImageScale, sizeCanvas } from './canvas.js';
 
 let overlayCanvas = null;
 let overlayCtx = null;
@@ -119,8 +119,7 @@ function createOverlayCanvas() {
     overlayCanvas.className = 'drag-overlay-canvas';
 
     // Use image-container dimensions (will be updated with actual image size)
-    overlayCanvas.width = imageContainer.clientWidth;
-    overlayCanvas.height = imageContainer.clientHeight;
+    sizeCanvas(overlayCanvas, imageContainer.clientWidth, imageContainer.clientHeight);
 
     overlayCanvas.style.position = 'absolute';
     overlayCanvas.style.top = '0';
@@ -140,8 +139,7 @@ function createOverlayCanvas() {
 export function refreshOverlayCanvas() {
     const imageContainer = document.querySelector('.image-container');
     if (overlayCanvas && imageContainer) {
-        overlayCanvas.width = imageContainer.clientWidth;
-        overlayCanvas.height = imageContainer.clientHeight;
+        sizeCanvas(overlayCanvas, imageContainer.clientWidth, imageContainer.clientHeight);
     }
 }
 
@@ -162,30 +160,21 @@ function getPointerCoordinates(event) {
  * Handle pointerdown on item cards
  */
 function handleCardPointerDown(e) {
+    if (dragState.draggedCard) return;
     // Check if click is on an item-list or inside it
     const itemList = e.target.closest('.item-list');
     if (!itemList) return;
     // Ignore non-left buttons (e.g., right-click) to prevent drag glitches
     if (typeof e.button === 'number' && e.button !== 0) return;
 
-    // Prevent all default behaviors
-    e.preventDefault();
-    e.stopPropagation();
-
     const coords = getPointerCoordinates(e);
 
-    dragState.isDragging = true;
+    // A press is still a tap until the pointer moves; touch previews rely on this.
+    dragState.isDragging = false;
     dragState.draggedCard = itemList;
     dragState.dragStartX = coords.x;
     dragState.dragStartY = coords.y;
     dragState.activePointerId = typeof e.pointerId === 'number' ? e.pointerId : null;
-    if (dragState.activePointerId !== null && itemList.setPointerCapture) {
-        try {
-            itemList.setPointerCapture(dragState.activePointerId);
-        } catch (err) {
-            // Ignore if capture cannot be set
-        }
-    }
 
     // Store original position
     const transform = itemList.style.transform;
@@ -254,37 +243,40 @@ function handleCardPointerDown(e) {
  * Handle pointermove while dragging
  */
 function handleCardPointerMove(e) {
-    if (!dragState.isDragging || !dragState.draggedCard) return;
+    if (!dragState.draggedCard) return;
     if (dragState.activePointerId !== null && typeof e.pointerId === 'number' && e.pointerId !== dragState.activePointerId) return;
+
+    const coords = getPointerCoordinates(e);
+    const deltaX = coords.x - dragState.dragStartX;
+    const deltaY = coords.y - dragState.dragStartY;
+    if (!dragState.isDragging) {
+        if (Math.hypot(deltaX, deltaY) < 4) return;
+        dragState.isDragging = true;
+        hideItemPreview();
+        if (dragState.activePointerId !== null) {
+            try { dragState.draggedCard.setPointerCapture?.(dragState.activePointerId); } catch {}
+        }
+    }
 
     // Prevent default behavior while dragging
     e.preventDefault();
     e.stopPropagation();
 
-    const coords = getPointerCoordinates(e);
-
     // Update canvas dimensions in case window was resized during drag
     if (domElements.image && domElements.canvas) {
         const currentImageWidth = domElements.image.clientWidth;
         const currentImageHeight = domElements.image.clientHeight;
-        if (domElements.canvas.width !== currentImageWidth || domElements.canvas.height !== currentImageHeight) {
-            domElements.canvas.width = currentImageWidth;
-            domElements.canvas.height = currentImageHeight;
-        }
-
         // Also update overlay canvas internal resolution to match image dimensions
         // This ensures coordinates stay in sync when page is zoomed or window is resized
-        if (overlayCanvas && (overlayCanvas.width !== currentImageWidth || overlayCanvas.height !== currentImageHeight)) {
-            overlayCanvas.width = currentImageWidth;
-            overlayCanvas.height = currentImageHeight;
+        const ratio = window.devicePixelRatio || 1;
+        if (overlayCanvas && (overlayCanvas.width !== Math.round(currentImageWidth * ratio)
+            || overlayCanvas.height !== Math.round(currentImageHeight * ratio))) {
+            sizeCanvas(overlayCanvas, currentImageWidth, currentImageHeight);
         }
     }
 
     // Update zoom level in case browser was zoomed
     updateZoomLevel();
-
-    const deltaX = coords.x - dragState.dragStartX;
-    const deltaY = coords.y - dragState.dragStartY;
 
     const newX = dragState.dragOffsetX + deltaX;
     const newY = dragState.dragOffsetY + deltaY;
@@ -302,13 +294,19 @@ function handleCardPointerMove(e) {
  * Handle pointerup/pointercancel to end dragging
  */
 function handleCardPointerUp(e) {
-    if (!dragState.isDragging || !dragState.draggedCard) return;
+    if (!dragState.draggedCard) return;
     if (dragState.activePointerId !== null && typeof e.pointerId === 'number' && e.pointerId !== dragState.activePointerId) return;
 
-    // Prevent default behavior
-    e.preventDefault();
-    e.stopPropagation();
+    if (dragState.isDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragState.lastDragEndedAt = Date.now();
+    }
+    cancelDrag();
+}
 
+export function cancelDrag() {
+    if (!dragState.draggedCard) return;
     dragState.isDragging = false;
     const card = dragState.draggedCard;
 
@@ -421,7 +419,7 @@ function updateZoomLevel() {
 
     // Calculate zoom level by comparing CSS display size to canvas internal size
     const displayWidth = imageContainer.offsetWidth;
-    const internalWidth = domElements.canvas.width;
+    const internalWidth = domElements.image.clientWidth;
 
     if (internalWidth > 0 && displayWidth > 0) {
         domLayoutState.pageZoomLevel = displayWidth / internalWidth;
@@ -440,8 +438,8 @@ function gameToScreenCoordinates(gameX, gameY) {
     const scale = getImageScale() || 1;
     const offsetX = parseFloat(domElements.offsetXInput.value) * scale;
     const offsetY = parseFloat(domElements.offsetYInput.value) * scale;
-    const originX = domElements.canvas.width / 2 + offsetX;
-    const originY = domElements.canvas.height / 2 + offsetY;
+    const originX = domElements.image.clientWidth / 2 + offsetX;
+    const originY = domElements.image.clientHeight / 2 + offsetY;
     const displayGridWidth = parseFloat(domElements.physicalWidthInput.value) * (domElements.image.clientWidth / domElements.image.naturalWidth);
 
     const displayX = canvasState.xDirection === 'x+' ? originX + gameX * displayGridWidth : originX - gameX * displayGridWidth;

@@ -1,7 +1,7 @@
 # Public HTTP rendering
 
 This optional Cloudflare Worker serves the viewer and two public HTTP endpoints.
-Neither endpoint requires a token or a browser visit. CORS is enabled for any origin.
+CORS is enabled for any origin.
 Both accept only the [compact JSON format](../README.md#data-file-format).
 
 ## Deploy
@@ -14,8 +14,7 @@ npx wrangler login
 npm run deploy
 ```
 
-Use the `workers.dev` address printed by Wrangler as `BASE_URL` below. GitHub Pages
-continues to serve the static viewer; it cannot execute these HTTP endpoints.
+Use the `workers.dev` address printed by Wrangler as `BASE_URL` below.
 The build copies tracked viewer assets, including PNG files from `icon/Texture2D`.
 Download and commit required icons before deploying so GitHub Pages and the Worker
 each carry their own assets. Local samples and settings are excluded.
@@ -78,32 +77,31 @@ The response is `{"images":[...]}`, ordered by site ID 5, 6, 7, 8. Each entry co
 
 Decode each `base64` value to a file. In iPhone Shortcuts: get the response dictionary,
 repeat over `images`, Base64 Decode the `base64` value, then Save to Photo Album or
-Save File. The output includes the map and item overlays in the viewer's All Cards
-mode. `missingIcons` lists `category:id` entries that used the placeholder.
+Save File. The output includes the map and item overlays. `missingIcons` lists
+`category:id` entries that used the placeholder.
+
+Choose the card display with `mode=all` (default) or `mode=grouped`:
+
+- `POST /api/render?mode=all`: one card per fixture, matching **All cards**.
+- `POST /api/render?mode=grouped`: combine nearby fixtures of the same type with
+  identical rewards, matching **Grouped**. The ×N badge is the number of fixtures;
+  quantities inside the card remain per fixture.
+
+The same modes work with JPEG, for example
+`POST /api/render?format=jpeg&mode=grouped`. Unknown mode values return HTTP 400.
 
 ### One tall image for Shortcuts
 
 Use the same JSON body with `POST /api/render?format=jpeg` to receive a single
 binary `image/jpeg` response instead of Base64 JSON. Maps are stacked vertically
 in site ID order 5, 6, 7, 8. The image uses a 2x pixel density (3120x7020 pixels),
-10px quantity labels, and JPEG quality 92. Labels and icons are rendered at that
+separate high-contrast quantity labels, and JPEG quality 92. Labels and icons are rendered at that
 density before capture; backgrounds retain their original 1920x1080 detail.
 
 ```sh
 curl "$BASE_URL/api/render?format=jpeg" -H 'Content-Type: application/json' \
   --data-binary @maps.json -o mysekai-maps.jpg
 ```
-
-In Shortcuts, keep the JSON upload steps, change the rendering URL to this one,
-then pass its result directly to Quick Look. Remove the response dictionary,
-`images` loop, and Base64 Decode actions. Nothing needs to be saved to Photos.
-Errors still return JSON; Quick Look can display that response for troubleshooting.
-Unknown output formats return HTTP 400. The default four-PNG JSON response remains
-available with no query parameter or with `format=json`.
-
-The tall image uses one browser session and one final screenshot. It shares the
-same daily budget and timeout as the four-image output. Higher pixel density adds
-rendering work; the output format does not create additional browser sessions.
 
 Responses use `Cache-Control: no-store`; the Worker does not persist payloads or
 images. Files opened in the static viewer stay in the browser. Requests to these
@@ -119,8 +117,8 @@ render that exceeded its time allowance. Respect `Retry-After` on 429 responses.
 The renderer uses the Free plan's 600-second daily Browser Run allowance as its budget:
 
 - At 480 seconds (80%), `/api/usage` reports `warning` and records `warningAt`.
-- At 540 seconds (90%), new renders return HTTP 429 until the next UTC day
-  (08:00 in China). A render gets at most 60 seconds, or the remaining budget.
+- At 540 seconds (90%), new renders return HTTP 429 until the next UTC day.
+- A render gets at most 60 seconds, or the remaining budget.
 - Only one render runs at a time, with at least 20 seconds between browser launches.
 - If browser cleanup cannot be confirmed, rendering pauses for the rest of that UTC day.
 
@@ -145,6 +143,7 @@ four small synthetic maps):
 
 ```sh
 node check.mjs http://localhost:8787 /path/to/maps.json
+node check.mjs "http://localhost:8787?format=jpeg&mode=grouped" /path/to/maps.json
 ```
 
 The check verifies all four PNG headers and dimensions and saves them under the

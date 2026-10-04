@@ -56,13 +56,6 @@ export const domLayoutState = {
     },
 };
 
-// Canvas optimization
-export const canvasOptimizationState = {
-    lastRenderedPoints: [],
-    dirtyRegions: [],
-    isDirtyCanvasEnabled: true,
-};
-
 // Texture preloading state
 export const texturePreloadState = {
     allTexturesLoaded: new Set(),
@@ -77,7 +70,7 @@ export const aggregationState = {
     distanceThreshold: 8, // Units: only aggregate points within 8 units
     aggregatedPoints: {}, // Maps aggregated key to aggregation data
     pointToAggregationKey: {}, // Maps original point to aggregation group key
-    debugMode: true, // Enable console logs for debugging
+    debugMode: false,
 };
 
 // Display mode state
@@ -85,7 +78,8 @@ export const displayModeState = {
     mode: 'all', // 'aggregated' or 'all' - whether to show aggregated cards or all cards individually
     // Load from localStorage on initialization
     init() {
-        const saved = localStorage.getItem('ursekai-xray-display-mode');
+        let saved;
+        try { saved = localStorage.getItem('ursekai-xray-display-mode'); } catch {}
         if (saved === 'aggregated' || saved === 'all') {
             this.mode = saved;
         } else {
@@ -95,7 +89,8 @@ export const displayModeState = {
     setMode(newMode) {
         if (newMode === 'aggregated' || newMode === 'all') {
             this.mode = newMode;
-            localStorage.setItem('ursekai-xray-display-mode', newMode);
+            // Saving a preference is optional when browser storage is unavailable.
+            try { localStorage.setItem('ursekai-xray-display-mode', newMode); } catch {}
         }
     }
 };
@@ -117,4 +112,5 @@ export const dragState = {
     connectionLineCanvas: null, // Canvas for drawing connection lines
     fixtureId: 0, // Fixture ID for connection line color matching
     activePointerId: null, // Track pointer id so touch/mouse do not conflict
+    lastDragEndedAt: 0,
 };
