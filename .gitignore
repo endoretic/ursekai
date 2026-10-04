@@ -1,11 +1,15 @@
+# Python environment and caches
 *.pyc
-mysekai_data.json
-CLAUDE.md
-AGENTS.md
-.vscode/
-.claude/
-testdata/
 __pycache__/
+.venv/
+
+# Local payloads and session credentials
+/mysekai_data.json
+/testdata/
+/rep/session.json
+/rep/response.bin
+
+# Generated assets and Worker build/runtime files
 icon/Texture2D/*.png.tmp
 worker/node_modules/
 worker/public/
