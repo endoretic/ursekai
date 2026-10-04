@@ -15,7 +15,6 @@
     --radius-lg: 24px;
     --radius-md: 16px;
     --radius-sm: 10px;
-    --card-scale: 1;
     --card-font-scale: 1;
     --card-icon-size: 20px;
     --preview-size: 120px;
@@ -560,11 +559,16 @@ input[type="radio"], input[type="checkbox"] {
     position: relative;
     width: 100%;
     max-width: 1920px;
+    overflow: auto;
+    border-radius: var(--radius-md);
+    scrollbar-width: thin;
+    scrollbar-color: #7467c5 #1b2030;
 }
 
 .image-container {
     position: relative;
     width: 100%;
+    min-width: 1024px;
     border-radius: var(--radius-md);
     overflow: hidden;
     user-select: none;
@@ -593,16 +597,19 @@ input[type="radio"], input[type="checkbox"] {
 
 /* Overlay dimensions stay in display pixels so locations and dragging remain aligned. */
 .item-list {
+    --card-accent: #5cbac4;
     position: absolute;
-    padding: calc(6px * var(--card-scale));
-    border: 2px solid rgba(98, 226, 236, 0.4);
-    border-radius: calc(10px * var(--card-scale));
-    background: rgba(26, 27, 42, 0.92);
-    box-shadow: 0 6px 16px rgba(5, 6, 17, 0.25);
-    backdrop-filter: blur(10px);
-    font-size: calc(10px * var(--card-font-scale));
+    display: grid;
+    gap: 3px;
+    width: max-content;
+    max-width: calc(100% - 16px);
+    padding: 5px 7px 5px 6px;
+    border: 1px solid #485366;
+    border-left: 3px solid var(--card-accent);
+    border-radius: 9px;
+    background: #1b2030;
+    box-shadow: 0 3px 8px rgba(5, 6, 17, 0.3);
     text-align: left;
-    will-change: transform;
     transform: translate3d(0, 0, 0);
     z-index: 1;
     user-select: none;
@@ -612,33 +619,73 @@ input[type="radio"], input[type="checkbox"] {
 }
 
 .item-list:hover {
-    border-color: rgba(98, 226, 236, 0.75);
+    border-color: var(--card-accent);
+}
+
+.item-list.horizontal {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 7px;
+}
+
+.item-list.rare-card {
+    --card-accent: #bd9bf7;
+    border-color: #87749f;
+    border-left-color: var(--card-accent);
+    background: #302b43;
+}
+
+.item-list.super-rare-card {
+    --card-accent: #ffa5b7;
+    border-color: #a17083;
+    border-left-color: var(--card-accent);
+    background: #452d3c;
+}
+
+.reward-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
 }
 
 .item-list img {
     display: block;
-    position: relative;
+    flex: none;
     width: var(--card-icon-size);
     height: var(--card-icon-size);
-    max-width: 100%;
-    margin: 1px;
-    border-radius: 16px;
-    vertical-align: middle;
+    object-fit: contain;
+    border-radius: 3px;
     user-select: none;
     -webkit-user-drag: none;
     -webkit-user-select: none;
 }
 
 .item-list .quantity {
+    min-width: 1ch;
+    color: #f4f5ff;
+    font-size: clamp(11px, calc(12px * var(--card-font-scale)), 13px);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+    text-align: right;
+    pointer-events: none;
+}
+
+.group-count {
     position: absolute;
-    right: 0;
-    bottom: 0;
-    padding: calc(2px * var(--card-scale)) calc(4px * var(--card-scale));
-    border-radius: 50%;
-    color: white;
-    background: rgba(0, 0, 0, 0.5);
-    font-size: calc(8px * var(--card-font-scale));
-    font-weight: bold;
+    top: -8px;
+    right: -5px;
+    min-width: 27px;
+    padding: 2px 5px;
+    border: 1px solid #d8c8ff;
+    border-radius: 6px;
+    background: #c4a8ff;
+    color: #211832;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
     pointer-events: none;
 }
 
@@ -1054,6 +1101,7 @@ body.render-mode {
 }
 
 .render-mode .image-container {
+    min-width: 0;
     border-radius: 16px;
 }
 

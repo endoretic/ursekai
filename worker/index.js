@@ -87,7 +87,7 @@ async function loadFromUrl(input) {
     return harvestJson(await readJson(response));
 }
 
-async function renderMaps(data, env, origin, durationMs, format) {
+async function renderMaps(data, env, origin, durationMs, format, mode) {
     const { default: puppeteer } = await import('@cloudflare/puppeteer');
     const started = Date.now();
     const browser = await puppeteer.launch(env.BROWSER);
@@ -103,9 +103,8 @@ async function renderMaps(data, env, origin, durationMs, format) {
         const page = await browser.newPage();
         const strip = format === 'jpeg';
         await page.setViewport({ width: 1600, height: 1200, deviceScaleFactor: strip ? 2 : 1 });
-        await page.goto(`${origin}/paint_local.html?render=1`, { waitUntil: 'load', timeout: 30000 });
+        await page.goto(`${origin}/paint_local.html?render=1&mode=${mode}`, { waitUntil: 'load', timeout: 30000 });
         if (strip) {
-            await page.addStyleTag({ content: '.render-mode .item-list .quantity { font-size: 10px; }' });
             await page.evaluate(() => { window.renderPanels = []; });
         }
         phase = 'initializing the viewer';
@@ -253,14 +252,14 @@ function budgetForToday(env) {
     return env.RENDER_BUDGET.get(env.RENDER_BUDGET.idFromName(new Date().toISOString().slice(0, 10)));
 }
 
-async function renderWithBudget(data, env, origin, format) {
+async function renderWithBudget(data, env, origin, format, mode) {
     const budget = budgetForToday(env);
     const reservationResponse = await budget.fetch('https://budget/reserve', { method: 'POST' });
     if (!reservationResponse.ok) return reservationResponse;
     const reservation = await reservationResponse.json();
     let closed = true;
     try {
-        const result = await renderMaps(data, env, origin, reservation.durationMs, format);
+        const result = await renderMaps(data, env, origin, reservation.durationMs, format, mode);
         if (format === 'jpeg') return new Response(result, { headers: {
             ...API_HEADERS, 'Content-Type': 'image/jpeg',
             'Content-Disposition': 'inline; filename="mysekai-maps.jpg"'
@@ -294,7 +293,9 @@ export default {
             if (url.pathname === '/api/load') return json(await loadFromUrl(input));
             const format = url.searchParams.get('format') || 'json';
             if (!['json', 'jpeg'].includes(format)) fail(400, 'Render format must be json or jpeg');
-            return await renderWithBudget(harvestJson(input, true), env, url.origin, format);
+            const mode = url.searchParams.get('mode') ?? 'all';
+            if (!['all', 'grouped'].includes(mode)) fail(400, 'Render mode must be all or grouped');
+            return await renderWithBudget(harvestJson(input, true), env, url.origin, format, mode);
         } catch (error) {
             return json({ error: error.status ? error.message : 'Rendering failed' }, error.status || 502);
         }

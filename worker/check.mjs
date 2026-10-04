@@ -24,6 +24,14 @@ assert.equal((await call('/api/render?format=jpeg', {})).status, 400);
 assert.equal((await call('/api/render?format=jpeg', data)).status, 503);
 assert.equal((await call('/api/render?format=json', data)).status, 503);
 assert.equal((await call('/api/render?format=unknown', data)).status, 400);
+for (const format of ['json', 'jpeg']) {
+    for (const mode of ['all', 'grouped']) {
+        assert.equal((await call(`/api/render?format=${format}&mode=${mode}`, data)).status, 503);
+    }
+    for (const mode of ['', 'aggregated', 'unknown']) {
+        assert.equal((await call(`/api/render?format=${format}&mode=${mode}`, data)).status, 400);
+    }
+}
 
 const realFetch = globalThis.fetch;
 try {
@@ -120,6 +128,8 @@ if (process.argv[2]) {
     const endpoint = new URL('/api/render', process.argv[2]);
     const format = new URL(process.argv[2]).searchParams.get('format');
     if (format) endpoint.searchParams.set('format', format);
+    const mode = new URL(process.argv[2]).searchParams.get('mode');
+    if (mode !== null) endpoint.searchParams.set('mode', mode);
     const response = await fetch(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload,
         signal: AbortSignal.timeout(180000)

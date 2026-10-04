@@ -93,18 +93,28 @@ Other JSON layouts are rejected with an error.
 
 ## HTTP Automation
 
-The public renderer is hosted at
-[ursekai-xray-renderer.endoretic.workers.dev](https://ursekai-xray-renderer.endoretic.workers.dev).
-Both endpoints are public and require no access token or browser visit:
+Base URL: [ursekai-xray-renderer.endoretic.workers.dev](https://ursekai-xray-renderer.endoretic.workers.dev).
+Send request bodies as `application/json` using the compact format above.
 
-- `POST /api/load` with `{"url":"https://example.com/maps.json"}` loads compact JSON from a URL.
-- `POST /api/render` with that JSON returns four PNG images as Base64, one per map.
+| Endpoint | Request body | Response |
+|----------|--------------|----------|
+| `POST /api/load` | `{"url":"https://example.com/maps.json"}` | Compact map JSON, ready for `/api/render` |
+| `POST /api/render` | Compact map JSON | Four PNGs in `{"images":[...]}`, each with a `base64` field |
+| `POST /api/render?format=jpeg` | Compact map JSON | One JPEG with all four maps stacked vertically |
+| `GET /api/usage` | None | Shared daily rendering budget and status |
 
-The renderer requires all four site IDs (5, 6, 7, 8). See the [Worker guide](worker/README.md) for
-deployment, request examples, response fields, and iPhone Shortcuts steps. These
-endpoints run at the deployed Worker's address; the GitHub Pages viewer stays static.
-`GET /api/usage` reports the shared daily budget. Rendering pauses at 90% of the
-Free plan's daily browser allowance and resumes at the next UTC day.
+Rendering requires all four site IDs (5, 6, 7, 8), which also determine image order.
+Add `mode=all` (default) or `mode=grouped` to either render format. Grouped cards
+combine nearby matching fixtures; `×N` is the fixture count, while card quantities
+remain per fixture. For example:
+
+```text
+POST /api/render?format=jpeg&mode=grouped
+```
+
+Usage reports `warning` at 80% of the configured daily browser budget. Rendering
+pauses at 90% and resumes at the next UTC day. See the [Worker guide](worker/README.md)
+for deployment, response fields, and request examples.
 
 ## Item Types and Colors
 
@@ -124,62 +134,33 @@ The tool uses color coding to distinguish between different material types:
 
 ## Updating JP Drops and Harvest Fixtures
 
-Run from the repository root with Python (standard library only):
+From the repository root, run with Python (standard library only):
 
 ```powershell
 python scripts/update_masterdata.py --download-icons
 ```
 
-The updater reads the latest public Japanese master data from
-[Sekai-World/sekai-master-db-diff](https://github.com/Sekai-World/sekai-master-db-diff),
-pins all six tables to the same commit, and writes `js/masterdata.js`. It includes
-materials, items, ungrown plants (the furniture that can drop), and harvest fixture
-types, plus ordinary materials used by birthday/campaign rewards. The generated
-file records the source commit and timestamp. Public master
-data can include entries that are not yet obtainable in game.
+This updates `js/masterdata.js` from public JP data in
+[Sekai-World/sekai-master-db-diff](https://github.com/Sekai-World/sekai-master-db-diff)
+and downloads missing icons into `icon/Texture2D/`. Existing icons are preserved.
 
-To reproduce a specific snapshot, pass `--ref <commit SHA>`. Omit `--download-icons`
-to update metadata only. The checked-in snapshot is from 2026-10-02, commit
-`db430d712d9418d11977d7fa2b188b0babd30071`.
+- Omit `--download-icons` to update metadata only.
+- Use `--ref <commit SHA>` to reproduce a snapshot.
+- Add `--material-id <ID>` for specific ordinary reward icons; repeat for multiple IDs.
 
-Missing icons are downloaded from Sekai Viewer's
-[current thumbnail directory](https://sekai.best/asset_viewer/mysekai/thumbnail)
-into `icon/Texture2D/`. Existing icons are preserved. Commit the downloaded icons
-with metadata updates so GitHub Pages and the Worker each deploy their own copy.
-For offline use, run with `--download-icons`. A deployed copy without the required
-icons tries the public CDN, then `icon/missing.png`.
-Files opened in the viewer are parsed locally in the browser;
-HTTP rendering requests are processed by the deployed Worker.
-
-Ordinary material icons load on demand from the CDN. To keep particular rewards
-available offline, append `--material-id 179 --material-id 201` (replace IDs with
-those in your sample) when downloading icons. The custom filter lists only the
-ordinary materials present in the uploaded maps, not the entire game's shop.
-`python icon/clean_up.py` audits local MySekai icons without deleting files.
-
-`js/config.js` derives texture and fixture mappings from the generated catalog.
-It preserves the existing palette and special highlights, uses game rarity 2/3
-for rare materials, and keeps Memoria outside that filter. Unknown future fixtures
-receive a visible default marker. The parser accepts only the compact positional
-harvest rows shown above.
-
-After an update, load a local JSON sample and check all four scenes, item previews,
-rare/custom filters, card dragging, and desktop/mobile layouts. New resource IDs
-in a sample remain selectable in the custom filter even before the next catalog
-update. Do not commit personal test payloads.
-
-For the parser's small dependency-free regression check (Node.js 20+):
-`node scripts/check_parser.mjs`.
+Commit metadata and required icons together so GitHub Pages and the Worker each
+include their own assets. Check all four maps, filters, previews, and desktop/mobile
+layouts with a local sample, then run `node scripts/check_parser.mjs` (Node.js 20+).
+Do not commit personal payloads. Public data may include unreleased items.
 
 ## License
 
 MIT License - See [LICENSE](LICENSE) file for details
 
-## Credits & Attribution
+## Rings of Power
 
 - **Original Work:** MiddleRed/pjsk-mysekai-xray (MIT), by @MiddleRed.
-- **Modifications by @endoretic (2025):** removed the “unsettling” parts, now it only shows a few useless images.
-- **Tools:** I don't, and can't code. Claude Code & ChatGPT did everything.
+- **My Precious:** Claude & Codex.
 
 ---
 

@@ -12,6 +12,8 @@
         if (new URLSearchParams(location.search).get('render') !== '1') {
             const fonts = document.createElement('link');
             fonts.rel = 'stylesheet';
+            fonts.media = 'print';
+            fonts.onload = () => { fonts.media = 'all'; };
             fonts.href = 'https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500'
                 + '&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@500;600;700'
                 + '&family=Space+Grotesk:wght@500;600;700&display=swap';
@@ -151,11 +153,11 @@
                 <div class="map-toolbar">
                     <div>
                         <h2 id="sceneTitle" lang="ja">さいしょの原っぱ</h2>
-                        <p>Drag a card to trace its drop location.</p>
+                        <p>Scroll to explore the map. Drag a card to trace its drop location.</p>
                     </div>
                     <span class="data-status" id="dataStatus" role="status">No data loaded</span>
                 </div>
-                <div class="container">
+                <div class="container" tabindex="0" role="region" aria-label="Scrollable map">
                     <div class="image-container">
                         <img alt="Scene background" id="image" draggable="false">
                         <canvas class="grid-canvas" id="gridCanvas"></canvas>

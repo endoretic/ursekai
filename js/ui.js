@@ -5,15 +5,15 @@
 
 import { SCENES, getItemTexture } from './config.js';
 import { setItemImage } from './itemImages.js';
-import { canvasState, sceneState, domElements, canvasOptimizationState, filterState, texturePreloadState, displayModeState, domLayoutState, dragState } from './state.js';
+import { canvasState, sceneState, domElements, filterState, texturePreloadState, displayModeState, domLayoutState, dragState } from './state.js';
 
 const MOBILE_PREVIEW_HIDE_MS = 2200;
 let previewAutoHideTimer = null;
 let lastTouchPreviewTime = 0;
-import { initCanvas, drawGrid, markPoint, displayReward, processPendingItemPositions, adjustItemListPositions, clearItemLists, clearDirtyRegions, calculateDirtyRegions, clearGrid, aggregatePoints } from './canvas.js';
+import { initCanvas, drawGrid, markPoint, processPendingItemPositions, clearItemLists, clearGrid, aggregatePoints } from './canvas.js';
 import { changeFilterMode, toggleFilterPanel, doContainsRareItem, shouldShowItem, setFilterChangeCallback } from './filters.js';
 import { handleFileUpload, parseMapData } from './dataParser.js';
-import { initializeDragInteraction, setCurrentScene, refreshOverlayCanvas } from './dragInteraction.js';
+import { initializeDragInteraction, setCurrentScene, refreshOverlayCanvas, cancelDrag } from './dragInteraction.js';
 
 /**
  * Log messages to UI
@@ -93,13 +93,11 @@ function applyCardScaleForDevice(profile) {
 
     const minSide = profile.minDimension || Math.min(profile.screenWidth || 0, profile.screenHeight || 0);
     const compactMobile = profile.isMobileViewport && minSide <= 540;
-    // Shrink harder on very small screens; keep desktop comfortably large
-    const cardScale = profile.isMobileViewport ? (compactMobile ? 0.64 : 0.74) : 1.12;
-    const fontScale = profile.isMobileViewport ? (compactMobile ? 0.82 : 0.9) : 1.08;
-    const iconSize = profile.isMobileViewport ? (compactMobile ? '15px' : '17px') : '24px';
+    // The map scrolls on narrow screens, so card labels can stay readable.
+    const fontScale = profile.isMobileViewport ? 1 : 1.08;
+    const iconSize = profile.isMobileViewport ? '22px' : '24px';
     const previewSize = profile.isMobileViewport ? (compactMobile ? '88px' : '100px') : '132px';
 
-    root.style.setProperty('--card-scale', cardScale.toString());
     root.style.setProperty('--card-font-scale', fontScale.toString());
     root.style.setProperty('--card-icon-size', iconSize);
     root.style.setProperty('--preview-size', previewSize);
@@ -131,6 +129,7 @@ function formatPreviewLabel() {
  */
 export function parseAndMarkPoints() {
     try {
+        cancelDrag();
         // Scene name mapping
         const sceneNameMap = {
             'scene1': 'さいしょの原っぱ',
@@ -140,34 +139,15 @@ export function parseAndMarkPoints() {
         };
 
         const sceneName = sceneNameMap[sceneState.currentScene];
-        const points = sceneState.harvestData[sceneName];
+        const points = sceneState.harvestData[sceneName] || [];
 
-        // Use dirty region detection if enabled
-        const usePartialRedraw = canvasOptimizationState.isDirtyCanvasEnabled && canvasOptimizationState.lastRenderedPoints.length > 0 && calculateDirtyRegions(points);
-
-        if (usePartialRedraw) {
-            clearDirtyRegions();
-        } else {
-            // Full canvas clear for first render or significant changes
-            initCanvas();
-        }
-
+        // Every card is rebuilt; clear its markers and connectors in the same pass.
+        initCanvas();
         clearItemLists();
-
-        if (!points) {
-            logger(`Scene ${sceneName} has no data`);
-            return;
-        }
-
-        if (!Array.isArray(points)) {
-            logger("Error: Data is not an array");
-            return;
-        }
 
         // Aggregate similar nearby points
         const aggregationResult = aggregatePoints(points);
-        const displayPoints = aggregationResult.displayPoints || aggregationResult;  // Support both old and new formats
-        const cardPoints = aggregationResult.cardPoints || aggregationResult;
+        const { displayPoints, cardPoints } = aggregationResult;
 
         // Batch DOM insertions using DocumentFragment
         const fragment = document.createDocumentFragment();
@@ -180,18 +160,12 @@ export function parseAndMarkPoints() {
 
         // Layout reads flush the inserted cards, including in a headless renderer.
         processPendingItemPositions();
-        if (displayPoints.length < 300) {
-            adjustItemListPositions(5, 5);
-        }
 
         const aggregatedCount = cardPoints.filter(p => p.isAggregated).length;
         logger(`Marked ${points.length} fixtures (${aggregatedCount} aggregated into ${cardPoints.length} cards)`);
 
         // Update item summary
-        updateItemSummary();
-
-        // Save current points for dirty region detection in next render
-        canvasOptimizationState.lastRenderedPoints = points.map(p => ({ location: [...p.location] }));
+        if (!document.body.classList.contains('render-mode')) updateItemSummary();
     } catch (error) {
         logger("Error marking points: " + error.message);
         if (document.body.classList.contains('render-mode')) throw error;
@@ -239,10 +213,12 @@ export function updateSceneButtonStatus() {
  * Select and display a scene
  */
 export async function selectScene(sceneKey) {
-    sceneState.currentScene = sceneKey;
     const selectedScene = SCENES[sceneKey];
 
     if (selectedScene) {
+        cancelDrag();
+        sceneState.currentScene = sceneKey;
+        hideItemPreview();
         // Update button state
         document.querySelectorAll('.scene-buttons button').forEach(btn => {
             btn.classList.remove('active');
@@ -274,10 +250,11 @@ export async function selectScene(sceneKey) {
             throw error;
         }
         if (sceneState.currentScene !== sceneKey) return;
-        initCanvas();
         parseAndMarkPoints();
+        const mapViewport = document.querySelector('.container');
+        mapViewport.scrollLeft = Math.max(0, (mapViewport.scrollWidth - mapViewport.clientWidth) / 2);
         refreshOverlayCanvas();
-        preloadSceneTextures(sceneKey);
+        if (!document.body.classList.contains('render-mode')) preloadSceneTextures(sceneKey);
     } else {
         logger(`Scene not found: ${sceneKey}`);
     }
@@ -311,9 +288,19 @@ export function showItemPreview(imgSrc, itemName, mouseX, mouseY, options = {}) 
     const preview = createItemPreview();
     preview.innerHTML = `<img src="${imgSrc}" onerror="this.style.display='none'">`;
     preview.classList.add('active');
+    positionItemPreview(mouseX, mouseY, options.offset);
 
+    if (previewAutoHideTimer) {
+        clearTimeout(previewAutoHideTimer);
+    }
+    if (options.autoHideMs) {
+        previewAutoHideTimer = setTimeout(() => hideItemPreview(), options.autoHideMs);
+    }
+}
+
+function positionItemPreview(mouseX, mouseY, offset = 15) {
+    const preview = domElements.itemPreview;
     // Position preview with bounds checks to avoid clipping on mobile
-    const offset = options.offset || 15;
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
     const previewRect = preview.getBoundingClientRect();
@@ -325,13 +312,6 @@ export function showItemPreview(imgSrc, itemName, mouseX, mouseY, options = {}) 
 
     preview.style.left = Math.min(targetLeft, maxLeft) + 'px';
     preview.style.top = Math.min(targetTop, maxTop) + 'px';
-
-    if (previewAutoHideTimer) {
-        clearTimeout(previewAutoHideTimer);
-    }
-    if (options.autoHideMs) {
-        previewAutoHideTimer = setTimeout(() => hideItemPreview(), options.autoHideMs);
-    }
 }
 
 /**
@@ -458,7 +438,7 @@ function onDataLoaded(result) {
     showDataLoadedIndicator(result.fileName);
 
     // Start background preload of all textures after data is loaded
-    preloadAllTexturesInBackground();
+    if (!document.body.classList.contains('render-mode')) preloadAllTexturesInBackground();
 }
 
 export function loadJson(gameData) {
@@ -507,9 +487,9 @@ export function initializeDropZone() {
 
     // File input change
     fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            handleFileUpload(e.target.files[0], onDataLoaded, onDataError);
-        }
+        const file = e.target.files[0];
+        e.target.value = '';
+        if (file) handleFileUpload(file, onDataLoaded, onDataError);
     });
 
     // Close modal when clicking outside
@@ -538,6 +518,7 @@ export function initializeImagePreviewDelegation() {
 
     // Single delegated listener for mouseover events
     imageContainer.addEventListener('mouseover', (e) => {
+        if (dragState.isDragging) return;
         if (e.target.tagName === 'IMG' && e.target.dataset.category) {
             const category = e.target.dataset.category;
             const itemId = e.target.dataset.itemId;
@@ -548,12 +529,12 @@ export function initializeImagePreviewDelegation() {
 
     // Single delegated listener for mousemove events
     imageContainer.addEventListener('mousemove', (e) => {
+        if (dragState.isDragging) return;
         if (e.target.tagName === 'IMG' && e.target.dataset.category) {
             const preview = domElements.itemPreview;
             if (preview && preview.classList.contains('active')) {
                 const coords = getInputPosition(e);
-                preview.style.left = (coords.x + 15) + 'px';
-                preview.style.top = (coords.y + 15) + 'px';
+                positionItemPreview(coords.x, coords.y);
             }
         }
     });
@@ -569,14 +550,17 @@ export function initializeImagePreviewDelegation() {
     imageContainer.addEventListener('pointerup', (e) => {
         if (e.pointerType !== 'touch') return;
         if (dragState.isDragging) return;
+        if (dragState.activePointerId !== null && e.pointerId !== dragState.activePointerId) return;
         e.preventDefault();
         lastTouchPreviewTime = Date.now();
-        handlePreviewTap(e, MOBILE_PREVIEW_HIDE_MS);
+        // Run after the pointer-up event reaches the document's drag cleanup.
+        setTimeout(() => handlePreviewTap(e, MOBILE_PREVIEW_HIDE_MS), 0);
     }, { passive: false });
 
     // Click fallback for browsers without pointer events/touch fallback
     imageContainer.addEventListener('click', (e) => {
         if (dragState.isDragging) return;
+        if (Date.now() - dragState.lastDragEndedAt < 350) return;
         if (Date.now() - lastTouchPreviewTime < 350) {
             return;
         }
@@ -733,7 +717,9 @@ export function updateItemSummary() {
     const summaryContainer = document.getElementById('itemSummary');
 
     if (!points || !Array.isArray(points) || points.length === 0) {
-        summaryContainer.innerHTML = '<div class="item-summary-empty">No items in this scene</div>';
+        summaryContainer.innerHTML = sceneState.dataLoadedFromFile
+            ? '<div class="item-summary-empty">No items in this scene</div>'
+            : '<div class="item-summary-empty">Load a JSON file to see this map’s item totals.</div>';
         return;
     }
 
@@ -825,8 +811,11 @@ export async function initializeUI() {
     }
 
     // Initialize display mode state (load from localStorage or use default 'all')
-    displayModeState.init();
-    if (renderMode) displayModeState.mode = 'all';
+    if (renderMode) {
+        displayModeState.mode = new URLSearchParams(location.search).get('mode') === 'grouped' ? 'aggregated' : 'all';
+    } else {
+        displayModeState.init();
+    }
 
     // Set up callback for filter changes
     setFilterChangeCallback(parseAndMarkPoints);
@@ -839,6 +828,12 @@ export async function initializeUI() {
     initializeImagePreviewDelegation();
     initializeDragInteraction();
 
+    if (!renderMode) {
+        // Fonts and scrollbar changes can resize cards/the map without a window resize.
+        new ResizeObserver(() => scheduleViewportRefresh(0)).observe(domElements.image);
+        document.fonts.addEventListener('loadingdone', () => scheduleViewportRefresh(0));
+    }
+
     // Initialize first scene (this will load image and set up canvas)
     await selectScene('scene1');
 
@@ -849,15 +844,12 @@ let resizeTimeout;
 
 function scheduleViewportRefresh(delay = 400) {
     if (document.body.classList.contains('render-mode')) return;
+    cancelDrag();
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-        const profileChanged = detectDeviceProfile();
-        initCanvas();
+        detectDeviceProfile();
         parseAndMarkPoints();
         refreshOverlayCanvas();
-        if (profileChanged) {
-            adjustItemListPositions(5, 5);
-        }
     }, delay);
 }
 
@@ -938,7 +930,7 @@ window.addEventListener('keydown', event => {
 
 // Initialize on page load
 const ready = new Promise((resolve, reject) => {
-    window.addEventListener('load', () => initializeUI().then(resolve, reject), { once: true });
+    window.addEventListener('DOMContentLoaded', () => initializeUI().then(resolve, reject), { once: true });
 });
 ready.catch(error => logger(`Initialization failed: ${error.message}`));
 window.MySekaiXray = { ready, loadJson, selectScene };
