@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { parseMapData } from './dataParser.js';
+import { parseMapData } from './dataParser.js?v=20261006';
 import { SITE_ID_MAP, getItemName } from './config.js';
 import { setItemImage } from './itemImages.js';
 import { restoreMaterials, waterTime } from './preview3dMaterials.js';
