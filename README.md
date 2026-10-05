@@ -1,6 +1,6 @@
-# pjsk-mysekai-xray
+# Ursekai
 
-A goldminer, visualizer, a cheater (or anything you'd like to call) for ur sekai.
+A goldminer, visualizer, a cheater (or anything you'd like to call) for your sekai.
 
 ## Prerequisites
 
@@ -10,7 +10,14 @@ Please refer to <https://github.com/mos9527/sssekai> for more details.
 
 ## How to Start
 
-<https://endoretic.github.io/ursekai-xray/>. (Or run `start_webui.bat` to start a local server)
+[Open Ursekai](https://endoretic.cc/ursekai/), click **Load JSON**, and select a decrypted
+JSON file. Maps, harvest objects, drops and weather render locally on your device.
+Left-drag to move, right-drag to turn, and scroll to zoom; on touch screens, use one
+finger to move and two to turn and zoom.
+
+For a local checkout, prepare the 3D assets described below and run `start_webui.bat`.
+See [3D assets and rendering](3D_ASSETS.md) for regeneration and
+weather details. HTTP automation continues to produce the existing 2D maps.
 
 ## Supported Scenes
 
@@ -24,9 +31,11 @@ Please refer to <https://github.com/mos9527/sssekai> for more details.
 ## Project Structure
 
 ```text
-ursekai-xray/
-├── paint_local.html              # Main viewer (browser-based)
-├── index.html                    # Web UI entry point
+ursekai/
+├── index.html                    # 3D homepage
+├── paint_local.html              # 2D HTTP renderer entry (not linked from homepage)
+├── assets/3d/                    # Local models/weather; deployed to Worker, ignored by Git
+├── vendor/three/                # Three.js and its MIT license
 ├── start_webui.bat               # Windows local server launcher
 ├── webui.py                      # Python local server
 ├── icon/
@@ -42,31 +51,12 @@ ursekai-xray/
 
 ## How It Works
 
-### Data Processing Pipeline
+The homepage parses your JSON in the browser and places harvest models and floating
+drop labels on the scene. Weather follows the recorded map-refresh time when that
+metadata is present. Files are not uploaded.
 
-```text
-User uploads JSON file
-        ↓
-paint_local.html (parses data in browser)
-  ├─ Parse map data with parseMapData()
-  │   └─ Extract spawned fixtures & their rewards
-  └─ Render visual overlay on canvas
-        ↓
-Canvas Rendering
-  ├─ Coordinate transformation (3D → 2D)
-  ├─ Color coding (by material type)
-  └─ Texture overlay (item icons)
-        ↓
-Display in browser
-```
-
-### Core Functions
-
-- `parseMapData(gameData)` - Parse raw game API response
-- `handleFileUpload(file)` - Handle uploaded JSON file
-- `parseAndMarkPoints()` - Mark all fixtures on current scene
-- `markPoint(point)` - Draw individual fixture on canvas
-- `displayReward(reward, x, y)` - Show item rewards at fixture location
+The HTTP renderer uses a separate 2D canvas page. Its JSON inputs, image outputs and
+Browser Run budget are independent of the interactive 3D homepage.
 
 ## Data File Format
 
@@ -93,7 +83,7 @@ Other JSON layouts are rejected with an error.
 
 ## HTTP Automation
 
-Base URL: [ursekai-xray-renderer.endoretic.workers.dev](https://ursekai-xray-renderer.endoretic.workers.dev).
+Base URL: [ursekai-renderer.endoretic.workers.dev](https://ursekai-renderer.endoretic.workers.dev).
 Send request bodies as `application/json` using the compact format above.
 
 | Endpoint | Request body | Response |

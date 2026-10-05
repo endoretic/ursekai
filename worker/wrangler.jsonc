@@ -1,6 +1,6 @@
 {
     "$schema": "node_modules/wrangler/config-schema.json",
-    "name": "ursekai-xray-renderer",
+    "name": "ursekai-renderer",
     "main": "index.js",
     "compatibility_date": "2026-10-02",
     "compatibility_flags": ["nodejs_compat"],

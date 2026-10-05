@@ -9,9 +9,9 @@ import os
 
 def main():
     port = 8000
-    url = f"http://localhost:{port}/paint_local.html"
+    url = f"http://localhost:{port}/"
 
-    print("Starting MySekai X-Ray...")
+    print("Starting Ursekai...")
     print(f"Running on http://localhost:{port}")
     print("Your browser will be opened automatically")
     print()

@@ -1,5 +1,5 @@
 {
-    "name": "ursekai-xray-renderer",
+    "name": "ursekai-renderer",
     "private": true,
     "type": "module",
     "scripts": {
