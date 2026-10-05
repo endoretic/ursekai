@@ -34,7 +34,7 @@ reuse fixed particle buffers. Camera input still redraws immediately.
 Ignored `assets/3d/models` and `assets/3d/weather` contain the models and selected
 weather textures/settings. They are uploaded only to the Worker's static assets;
 the public GitHub repository does not contain them. The online homepage loads them
-from `https://ursekai-renderer.endoretic.workers.dev/assets/3d/` with CORS enabled.
+from `https://ursekai-renderer.endoretic.cc/assets/3d/` with CORS enabled.
 On localhost it uses `./assets/3d/` instead. Three.js 0.162.0 is tracked separately
 in `vendor/three/` with its MIT license. No release download or fallback is used.
 The model/texture URLs are publicly accessible even though the files are not in Git.

@@ -1,6 +1,12 @@
 {
     "$schema": "node_modules/wrangler/config-schema.json",
     "name": "ursekai-renderer",
+    "workers_dev": true,
+    "routes": [{
+        "pattern": "ursekai-renderer.endoretic.cc",
+        "zone_name": "endoretic.cc",
+        "custom_domain": true
+    }],
     "main": "index.js",
     "compatibility_date": "2026-10-02",
     "compatibility_flags": ["nodejs_compat"],
