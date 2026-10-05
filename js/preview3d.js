@@ -10,7 +10,7 @@ import { createAtmosphere } from './preview3dAtmosphere.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const ASSET_ROOT = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
-    ? './assets/3d/' : 'https://ursekai-renderer.endoretic.workers.dev/assets/3d/';
+    ? './assets/3d/' : 'https://ursekai-renderer.endoretic.cc/assets/3d/';
 const viewport = document.getElementById('viewport');
 const loading = document.getElementById('loading');
 const status = document.getElementById('status');

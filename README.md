@@ -83,7 +83,7 @@ Other JSON layouts are rejected with an error.
 
 ## HTTP Automation
 
-Base URL: [ursekai-renderer.endoretic.workers.dev](https://ursekai-renderer.endoretic.workers.dev).
+Base URL: [ursekai-renderer.endoretic.cc](https://ursekai-renderer.endoretic.cc).
 Send request bodies as `application/json` using the compact format above.
 
 | Endpoint | Request body | Response |
