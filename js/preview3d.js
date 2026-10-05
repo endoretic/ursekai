@@ -14,6 +14,13 @@ const ASSET_ROOT = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostnam
 const viewport = document.getElementById('viewport');
 const loading = document.getElementById('loading');
 const status = document.getElementById('status');
+const mapDetails = document.getElementById('mapDetails');
+const compactLayout = window.matchMedia('(max-width: 700px), (max-width: 1000px) and (orientation: portrait)');
+function updateDetailsLayout() {
+    mapDetails.open = !compactLayout.matches;
+}
+compactLayout.addEventListener('change', updateDetailsLayout);
+updateDetailsLayout();
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#a8c6cf');
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 1600);
@@ -200,6 +207,8 @@ function selectHarvest(point) {
     document.getElementById('selectionHint').textContent = `Harvest #${point.fixtureId} · (${point.location.join(', ')})`;
     document.getElementById('rewards').replaceChildren(...rewardRows(point));
     labels.forEach(label => label.element.classList.toggle('selected', label.point === point));
+    mapDetails.open = true;
+    mapDetails.querySelector('.details-body').scrollTop = 0;
 }
 
 function disposeTerrain(model) {
@@ -224,6 +233,7 @@ function disposeTerrain(model) {
 function clearSelection() {
     document.getElementById('selectionHint').textContent = 'Select a harvest object to see its drops.';
     document.getElementById('rewards').replaceChildren();
+    if (compactLayout.matches) mapDetails.open = false;
 }
 
 function isGround(object) {
