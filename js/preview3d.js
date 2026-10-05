@@ -117,6 +117,7 @@ function updateAnimation() {
 }
 
 async function applyWeather() {
+    if (!atmosphere) return; // A JSON selected during startup is applied after weather assets load.
     const weather = captureWeather?.preset || 'sunny';
     const raining = captureWeather?.rain || false;
     const palette = await atmosphere.select(captureWeather?.id ?? 1);
