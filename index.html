@@ -1,12 +1,60 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="robots" content="noindex, nofollow, noarchive" />
-  <title>ursekai-xray</title>
-  <meta http-equiv="refresh" content="0; url=paint_local.html" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ursekai · MySekai maps</title>
+    <meta name="description" content="Explore your MySekai harvest maps in 3D. Load a decrypted JSON file to see harvest objects, drops and weather, entirely on your device.">
+    <link rel="stylesheet" href="css/preview3d.css">
+    <script type="importmap">
+        {"imports":{"three":"./vendor/three/build/three.module.js",
+        "three/addons/":"./vendor/three/examples/jsm/"}}
+    </script>
+    <script type="module" src="js/preview3d.js"></script>
 </head>
 <body>
-  <p>Redirecting… If nothing happens, <a href="paint_local.html">click here</a>.</p>
+    <header>
+        <a class="wordmark" href="./">URSEKAI<span> / FIELD NOTES</span></a>
+        <span class="badge">MYSEKAI IN 3D</span>
+    </header>
+    <main>
+        <aside>
+            <p class="eyebrow">EXPLORE YOUR DROPS</p>
+            <h1>A different<br> point of view.</h1>
+            <p class="intro">Original scene models, with your harvest objects placed on the map.</p>
+            <nav aria-label="Map">
+                <button data-site="5" class="active" aria-pressed="true"><span>01</span>さいしょの原っぱ</button>
+                <button data-site="6" aria-pressed="false"><span>02</span>願いの砂浜</button>
+                <button data-site="7" aria-pressed="false"><span>03</span>彩りの花畑</button>
+                <button data-site="8" aria-pressed="false"><span>04</span>忘れ去られた場所</button>
+            </nav>
+            <div class="imports">
+                <button id="loadJson" class="primary" type="button">Load JSON <span aria-hidden="true">↗</span></button>
+                <input id="jsonFile" type="file" accept=".json,.octet-stream,application/json" hidden>
+            </div>
+            <p class="privacy">Your file stays on this device.</p>
+            <section id="selection" aria-live="polite">
+                <p class="eyebrow">HARVEST DETAILS</p>
+                <p id="selectionHint">Load a JSON file, then select a harvest object to see its drops.</p>
+                <div id="rewards"></div>
+            </section>
+            <div class="preview-options">
+                <p id="weatherHint" class="privacy" role="status">Load JSON to read its weather.</p>
+                <label><input id="showDrops" type="checkbox" checked> Floating drops</label>
+                <label><input id="waterMotion" type="checkbox" checked> Animate water</label>
+            </div>
+            <p class="note">Left drag: move along the ground. Right drag: tilt and rotate. Scroll: zoom toward the pointer. On touch screens, use one finger to move, two to turn and zoom.</p>
+            <p class="note">Game textures and environment settings, adapted for the web. Weather particles and lighting are approximations.</p>
+        </aside>
+        <section class="stage" aria-label="3D map">
+            <div class="stage-toolbar">
+                <div><p class="eyebrow">FIELD / <span id="fieldNumber">01</span></p><h2 id="mapTitle">さいしょの原っぱ</h2></div>
+                <div class="view-buttons"><button id="topView">Top view</button><button id="resetView">Reset view</button></div>
+            </div>
+            <div id="viewport" tabindex="0" aria-label="Left drag to move, right drag to tilt and rotate, scroll to zoom"></div>
+            <div id="loading" role="status">Loading scene…</div>
+            <footer><span id="status" role="status">Preparing scene</span><span>Left drag to move · Right drag to turn · Scroll to zoom</span></footer>
+        </section>
+    </main>
 </body>
 </html>

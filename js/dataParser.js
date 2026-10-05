@@ -16,6 +16,7 @@ function requireArray(value, minLength = 0) {
 function logger(message) {
     if (typeof document === 'undefined') return;
     const logContainer = document.getElementById('logContainer');
+    if (!logContainer) return;
     const logEntry = document.createElement('div');
     logEntry.className = 'log-entry';
 

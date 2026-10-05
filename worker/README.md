@@ -15,9 +15,12 @@ npm run deploy
 ```
 
 Use the `workers.dev` address printed by Wrangler as `BASE_URL` below.
-The build copies tracked viewer assets, including PNG files from `icon/Texture2D`.
-Download and commit required icons before deploying so GitHub Pages and the Worker
-each carry their own assets. Local samples and settings are excluded.
+The build copies tracked viewer assets and local `assets/3d/models` and
+`assets/3d/weather` (see [3D assets](../3D_ASSETS.md)). GitHub Pages loads these models
+and textures from the Worker's static asset service using CORS. Matching asset
+requests bypass the Worker script and Browser Run. Local samples, raw bundles
+and settings are excluded. The homepage is 3D; `/api/render` still opens the separate
+2D page, without loading any 3D models or weather effects.
 Wrangler creates the SQLite-backed
 Durable Object used for daily timing counters; it does not store map data or images.
 

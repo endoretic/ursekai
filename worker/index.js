@@ -105,7 +105,45 @@ async function renderMaps(data, env, origin, durationMs, format, mode) {
         await page.setViewport({ width: 1600, height: 1200, deviceScaleFactor: strip ? 2 : 1 });
         await page.goto(`${origin}/paint_local.html?render=1&mode=${mode}`, { waitUntil: 'load', timeout: 30000 });
         if (strip) {
-            await page.evaluate(() => { window.renderPanels = []; });
+            phase = 'preparing all four maps';
+            // Scene loading, image readiness and panel copies stay inside the browser to avoid remote round trips.
+            await page.evaluate(async ({ payload, maps }) => {
+                await window.MySekaiXray.ready;
+                window.MySekaiXray.loadJson(payload);
+                const stack = document.createElement('div');
+                stack.id = 'render-map-strip';
+                stack.style.cssText = 'display:flex;flex-direction:column;width:max-content;';
+                for (const map of maps) {
+                    await window.MySekaiXray.selectScene(map.scene);
+                    const source = document.querySelector('.image-container');
+                    const deadline = performance.now() + 20000;
+                    // Keep the viewer's icon fallback handlers intact while waiting for their final source.
+                    while (![...source.querySelectorAll('img')].every(image => image.complete && image.naturalWidth > 0)) {
+                        if (performance.now() >= deadline) throw new Error(`Images did not load for map ${map.siteId}`);
+                        await new Promise(resolve => setTimeout(resolve, 16));
+                    }
+                    const { width, height } = source.getBoundingClientRect();
+                    const panel = source.cloneNode(true);
+                    const canvases = panel.querySelectorAll('canvas');
+                    source.querySelectorAll('canvas').forEach((canvas, index) => {
+                        // cloneNode copies canvas dimensions, but not its pixels.
+                        canvases[index].getContext('2d').drawImage(canvas, 0, 0);
+                    });
+                    panel.style.width = `${width}px`;
+                    panel.style.height = `${height}px`;
+                    panel.style.flexShrink = '0';
+                    stack.append(panel);
+                }
+                // Cloned images must finish decoding before the single screenshot.
+                await Promise.all([...stack.querySelectorAll('img')].map(image => image.decode()));
+                document.body.replaceChildren(stack);
+                document.body.style.cssText = 'margin:0;padding:0;display:block;min-height:0;';
+            }, { payload: data, maps: MAPS });
+            phase = 'capturing all four maps';
+            const element = await page.$('#render-map-strip');
+            const picture = await element.screenshot({ type: 'jpeg', quality: 92, captureBeyondViewport: true });
+            if (timedOut) fail(504, 'Rendering exceeded its time budget');
+            return picture;
         }
         phase = 'initializing the viewer';
         await page.evaluate(async payload => {
@@ -120,23 +158,6 @@ async function renderMaps(data, env, origin, durationMs, format, mode) {
                 .every(image => image.complete && image.naturalWidth > 0), { timeout: 20000 });
             const element = await page.$('.image-container');
             const bounds = await element.boundingBox();
-            if (strip) {
-                // Keep panels detached while scene switching updates the live viewer.
-                await page.evaluate(({ width, height }) => {
-                    const source = document.querySelector('.image-container');
-                    const panel = source.cloneNode(true);
-                    const canvases = panel.querySelectorAll('canvas');
-                    source.querySelectorAll('canvas').forEach((canvas, index) => {
-                        // cloneNode copies canvas dimensions, but not its pixels.
-                        canvases[index].getContext('2d').drawImage(canvas, 0, 0);
-                    });
-                    panel.style.width = `${width}px`;
-                    panel.style.height = `${height}px`;
-                    panel.style.flexShrink = '0';
-                    window.renderPanels.push(panel);
-                }, bounds);
-                continue;
-            }
             const missing = await page.evaluate(() => [...document.querySelectorAll('.item-list img')]
                 .filter(image => new URL(image.src).pathname.endsWith('/missing.png'))
                 .map(image => `${image.dataset.category}:${image.dataset.itemId}`));
@@ -147,22 +168,6 @@ async function renderMaps(data, env, origin, durationMs, format, mode) {
                 mimeType: 'image/png', width: Math.round(bounds.width), height: Math.round(bounds.height),
                 missingIcons: [...new Set(missing)], base64
             });
-        }
-        if (strip) {
-            phase = 'capturing all four maps';
-            await page.evaluate(() => {
-                const stack = document.createElement('div');
-                stack.id = 'render-map-strip';
-                stack.style.cssText = 'display:flex;flex-direction:column;width:max-content;';
-                stack.append(...window.renderPanels);
-                document.body.replaceChildren(stack);
-                document.body.style.cssText = 'margin:0;padding:0;display:block;min-height:0;';
-                delete window.renderPanels;
-            });
-            const element = await page.$('#render-map-strip');
-            const picture = await element.screenshot({ type: 'jpeg', quality: 92, captureBeyondViewport: true });
-            if (timedOut) fail(504, 'Rendering exceeded its time budget');
-            return picture;
         }
         if (timedOut) fail(504, 'Rendering exceeded its time budget');
         return { images };

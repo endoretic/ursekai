@@ -79,7 +79,7 @@ export const displayModeState = {
     // Load from localStorage on initialization
     init() {
         let saved;
-        try { saved = localStorage.getItem('ursekai-xray-display-mode'); } catch {}
+        try { saved = localStorage.getItem('ursekai-display-mode'); } catch {}
         if (saved === 'aggregated' || saved === 'all') {
             this.mode = saved;
         } else {
@@ -90,7 +90,7 @@ export const displayModeState = {
         if (newMode === 'aggregated' || newMode === 'all') {
             this.mode = newMode;
             // Saving a preference is optional when browser storage is unavailable.
-            try { localStorage.setItem('ursekai-xray-display-mode', newMode); } catch {}
+            try { localStorage.setItem('ursekai-display-mode', newMode); } catch {}
         }
     }
 };
