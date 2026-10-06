@@ -9,6 +9,7 @@ import { restoreMaterials, waterTime } from './preview3dMaterials.js';
 import { readCaptureWeather } from './preview3dWeather.js';
 import { createAtmosphere } from './preview3dAtmosphere.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { createToneHarvest } from './preview3dHarvest.js';
 
 const ASSET_ROOT = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
     ? './assets/3d/' : 'https://ursekai-renderer.endoretic.cc/assets/3d/';
@@ -299,8 +300,9 @@ async function placeHarvest(ticket) {
     const missing = [];
     for (const point of points) {
         const file = manifest.fixtures[point.fixtureId];
-        if (!file) { missing.push(point.fixtureId); continue; }
-        const object = loaded.get(file).clone(true);
+        if (!file && point.fixtureId !== 7001) missing.push(point.fixtureId);
+        const object = point.fixtureId === 7001 ? createToneHarvest()
+            : file ? loaded.get(file).clone(true) : new THREE.Group();
         const [x, z] = point.location;
         raycaster.set(new THREE.Vector3(-x, 300, z), new THREE.Vector3(0, -1, 0));
         const hit = raycaster.intersectObjects(ground, false)[0];
@@ -319,7 +321,8 @@ async function placeHarvest(ticket) {
         element.addEventListener('click', () => selectHarvest(point));
         labelLayer.append(element);
         const bounds = new THREE.Box3().setFromObject(placement);
-        labels.push({ element, point, anchor: new THREE.Vector3(-x, bounds.max.y + 0.65, z) });
+        const top = Number.isFinite(bounds.max.y) ? bounds.max.y : placement.position.y;
+        labels.push({ element, point, anchor: new THREE.Vector3(-x, top + 0.65, z) });
     }
     status.textContent = points.length ? `${harvest.children.length} harvest objects${missing.length
         ? ` · Missing models: ${[...new Set(missing)].join(', ')}` : ''}` : 'Scene ready · Load JSON to show harvest objects';
