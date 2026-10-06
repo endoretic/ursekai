@@ -3,19 +3,28 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#12131f">
     <title>Ursekai · MySekai maps</title>
     <meta name="description" content="Explore your MySekai harvest maps in 3D. Load a decrypted JSON file to see harvest objects, drops and weather, entirely on your device.">
-    <link rel="stylesheet" href="css/preview3d.css?v=20261006.4">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Noto+Sans+JP:wght@500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+    <link rel="stylesheet" href="css/preview3d.css?v=20261006.11">
     <script type="importmap">
         {"imports":{"three":"./vendor/three/build/three.module.js",
         "three/addons/":"./vendor/three/examples/jsm/"}}
     </script>
-    <script type="module" src="js/preview3d.js?v=20261006.4"></script>
+    <script type="module" src="js/preview3d.js?v=20261006.9"></script>
 </head>
 <body>
     <header>
-        <a class="wordmark" href="./">URSEKAI<span> / FIELD NOTES</span></a>
-        <span class="badge">MYSEKAI IN 3D</span>
+        <a class="brand" href="./" aria-label="ursekai home">
+            <span class="brand-mark" aria-hidden="true">⌖</span>
+            <span class="brand-name">ur<span>sekai</span></span>
+        </a>
+        <div class="header-links">
+            <a class="legacy-link" href="./paint_local.html">2D (Legacy)</a>
+            <a class="source-link" href="https://github.com/endoretic/ursekai"
+                target="_blank" rel="noopener">GitHub</a>
+        </div>
     </header>
     <main>
         <aside>
