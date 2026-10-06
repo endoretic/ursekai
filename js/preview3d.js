@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { parseMapData } from './dataParser.js?v=20261006';
 import { SITE_ID_MAP, getItemName } from './config.js';
+import { doContainsRareItem } from './filters.js';
 import { setItemImage } from './itemImages.js';
 import { restoreMaterials, waterTime } from './preview3dMaterials.js';
 import { readCaptureWeather } from './preview3dWeather.js';
@@ -311,6 +312,7 @@ async function placeHarvest(ticket) {
         harvest.add(placement);
         const element = document.createElement('button');
         element.className = 'harvest-label';
+        element.classList.toggle('super-rare', doContainsRareItem(point.reward, true));
         element.append(...rewardRows(point, true));
         element.setAttribute('aria-label', `Harvest ${point.fixtureId} at ${point.location.join(', ')}`);
         element.addEventListener('pointerdown', event => event.stopPropagation());
@@ -338,7 +340,7 @@ async function selectMap(nextSite) {
     clearHarvest();
     hasWaterMotion = false;
     updateAnimation();
-    document.querySelectorAll('[data-site]').forEach(button => {
+    document.querySelectorAll('nav [data-site]').forEach(button => {
         const active = button.dataset.site === siteId;
         button.classList.toggle('active', active);
         button.setAttribute('aria-pressed', String(active));
@@ -378,6 +380,12 @@ async function loadJson(data) {
     const parsed = parseMapData(data);
     if (!Object.keys(parsed).length) throw new Error('No map data found');
     mapData = parsed;
+    document.querySelectorAll('nav [data-site]').forEach(button => {
+        const points = mapData[SITE_ID_MAP[button.dataset.site]] || [];
+        const hasSuperRare = points.some(point => doContainsRareItem(point.reward, true));
+        button.classList.toggle('super-rare', hasSuperRare);
+        button.title = hasSuperRare ? 'Contains super rare drops' : '';
+    });
     captureWeather = readCaptureWeather(data);
     hasJson = true;
     await applyWeather();
@@ -405,7 +413,7 @@ document.getElementById('topView').addEventListener('click', () => resetCamera(t
 document.getElementById('showDrops').addEventListener('change', positionLabels);
 document.getElementById('waterMotion').addEventListener('change', updateAnimation);
 document.addEventListener('visibilitychange', updateAnimation);
-document.querySelectorAll('[data-site]').forEach(button => button.addEventListener('click', () => {
+document.querySelectorAll('nav [data-site]').forEach(button => button.addEventListener('click', () => {
     if (manifest) selectMap(button.dataset.site);
 }));
 viewport.addEventListener('contextmenu', event => event.preventDefault());

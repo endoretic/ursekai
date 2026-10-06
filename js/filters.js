@@ -148,7 +148,7 @@ export function doContainsRareItem(reward, isSuperRare = false) {
     for (const category in reward) {
         if (reward.hasOwnProperty(category) && compareList.hasOwnProperty(category)) {
             for (const itemId of Object.keys(reward[category])) {
-                if (compareList[category].includes(parseInt(itemId))) {
+                if (compareList[category].includes(parseInt(itemId)) && reward[category][itemId] > 0) {
                     return true;
                 }
             }

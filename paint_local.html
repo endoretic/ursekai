@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#12131f">
     <meta name="robots" content="noindex, nofollow, noarchive">
     <title>ursekai · MySekai maps</title>
-    <link rel="stylesheet" href="css/styles.css?v=20261004">
+    <link rel="stylesheet" href="css/styles.css?v=20261006.12">
     <script>
         // The HTTP renderer uses system fonts and avoids an external font request.
         if (new URLSearchParams(location.search).get('render') !== '1') {
@@ -30,20 +30,13 @@
                 <span class="brand-name">ur<span>sekai</span></span>
             </a>
             <div class="header-actions">
-                <a class="source-link" href="https://github.com/endoretic/ursekai"
-                    target="_blank" rel="noopener">GitHub</a>
                 <button class="menu-toggle secondary-button" onclick="window.toggleSidebar?.()"
                     aria-controls="sidebar" aria-expanded="false" aria-label="Open map controls">☰</button>
-                <button class="primary-button" onclick="window.openDropZoneModal?.()">
-                    <span aria-hidden="true">↥</span> Load JSON
-                </button>
+                <a class="view-link" href="./">MYSEKAI IN 3D</a>
+                <a class="source-link" href="https://github.com/endoretic/ursekai"
+                    target="_blank" rel="noopener">GitHub</a>
             </div>
         </header>
-
-        <section class="page-intro" aria-labelledby="pageTitle">
-            <h1 id="pageTitle">MySekai <span>map</span></h1>
-            <p>Find your drops across all four maps.<br>Load your MySekai JSON to get started.</p>
-        </section>
 
         <div class="sidebar-overlay" onclick="window.closeSidebar?.()" id="sidebarOverlay"></div>
         <div class="workspace">
@@ -79,6 +72,13 @@
                             </button>
                         </div>
 
+                        <div class="sidebar-imports">
+                            <button class="primary-button"
+                                onclick="window.closeSidebar?.(); document.getElementById('hiddenFileInput').click()">
+                                Load JSON <span aria-hidden="true">↗</span>
+                            </button>
+                            <p>Your file stays on this device.</p>
+                        </div>
                         <p class="map-legend"><span aria-hidden="true">●</span> Super rare drops</p>
                         <div class="display-mode-toggle">
                             <h3 class="section-label">Display</h3>

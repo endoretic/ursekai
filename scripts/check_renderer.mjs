@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { aggregatePoints, layoutItemRects, sizeCanvas, drawGrid } from '../js/canvas.js';
 import { displayModeState, domElements } from '../js/state.js';
+import { doContainsRareItem } from '../js/filters.js';
+
+for (const itemId of [5, 12, 20, 24]) {
+    assert.equal(doContainsRareItem({ mysekai_material: { [itemId]: 1 } }, true), true);
+    assert.equal(doContainsRareItem({ mysekai_material: { [itemId]: 0 } }, true), false);
+}
+assert.equal(doContainsRareItem({ mysekai_material: { 1: 2, 67: 1 } }, true), false);
+assert.equal(doContainsRareItem({ mysekai_music_record: { 5: 1 } }, true), false);
+assert.equal(doContainsRareItem({}, true), false);
 
 const point = (x, fixtureId = 1001, quantity = 2) => ({
     location: [x, 0], fixtureId, reward: { mysekai_material: { 1: quantity } }
@@ -54,4 +63,4 @@ for (const value of ['0', '-1', '', '0.001']) {
     assert.doesNotThrow(() => drawGrid());
 }
 delete globalThis.window;
-console.log('Renderer checks passed: grouping, bounded collision layout, blocked storage, pixel density and invalid grid.');
+console.log('Renderer checks passed: super rare drops, grouping, bounded collision layout, blocked storage, pixel density and invalid grid.');

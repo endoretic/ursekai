@@ -121,9 +121,50 @@ a:hover {
 }
 
 .source-link {
-    margin-right: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--panel);
+    color: var(--ink);
     font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
     text-decoration: none;
+    white-space: nowrap;
+}
+
+.source-link:hover {
+    border-color: var(--cyan);
+    background: #222337;
+    color: var(--cyan);
+}
+
+.view-link {
+    font-size: 11px;
+    padding: 10px 0;
+    white-space: nowrap;
+    text-decoration-color: var(--line-strong);
+}
+
+.sidebar-imports {
+    margin-top: 20px;
+}
+
+.sidebar-imports .primary-button {
+    width: 100%;
+    justify-content: space-between;
+    color: var(--canvas);
+}
+
+.sidebar-imports p {
+    margin: 10px 0 20px;
+    color: var(--muted-strong);
+    font-size: 10px;
+    line-height: 1.6;
 }
 
 .primary-button, .secondary-button, .direction-buttons button {
@@ -160,36 +201,12 @@ a:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 
-.page-intro {
-    display: flex;
-    justify-content: space-between;
-    align-items: end;
-    gap: 32px;
-    padding: 38px 0 30px;
-}
-
-.page-intro h1 {
-    margin: 0;
-    font: 700 clamp(36px, 4.6vw, 64px)/1.04 "Space Grotesk", system-ui, sans-serif;
-    letter-spacing: -0.06em;
-}
-
-.page-intro h1 span {
-    color: var(--violet);
-}
-
-.page-intro p {
-    margin: 0 0 3px;
-    color: var(--muted-strong);
-    font-size: 12px;
-    line-height: 1.7;
-}
-
 .workspace {
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr);
     gap: 18px;
-    align-items: start;
+    align-items: stretch;
+    margin-top: 20px;
 }
 
 .sidebar, .map-panel {
@@ -272,6 +289,28 @@ a:hover {
 
 .scene-buttons button.active .scene-caption {
     color: #c3b4ff;
+}
+
+.scene-buttons button.super-rare {
+    border-color: #ff927fa6;
+    background: #ff927f1f;
+    color: #ffe2d8;
+    box-shadow: 0 0 10px #ff927f19;
+    animation: rare-map-glow 3s ease-in-out infinite;
+}
+
+.scene-buttons button.super-rare .scene-caption {
+    color: #ffbdaf;
+}
+
+.scene-buttons button.super-rare.active {
+    border-color: #ffd4b5;
+    background: #ff927f33;
+}
+
+@keyframes rare-map-glow {
+    0%, 100% { box-shadow: 0 0 10px #ff927f19; }
+    50% { box-shadow: 0 0 18px #ff927f4d, inset 0 0 12px #ff927f0d; }
 }
 
 .scene-buttons button.super-rare::after {
@@ -921,6 +960,53 @@ input[type="radio"], input[type="checkbox"] {
     scrollbar-color: #7467c5 transparent;
 }
 
+@media (pointer: coarse) {
+    .view-link {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
+}
+
+@media (min-width: 1001px) {
+    body:not(.render-mode) .workspace {
+        height: max(560px, calc(100dvh - 164px));
+    }
+
+    body:not(.render-mode) .sidebar,
+    body:not(.render-mode) .map-panel {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    body:not(.render-mode) .sidebar {
+        position: relative;
+        top: auto;
+    }
+
+    body:not(.render-mode) .sidebar-header,
+    body:not(.render-mode) .map-toolbar {
+        flex: none;
+    }
+
+    body:not(.render-mode) .sidebar-content {
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    body:not(.render-mode) .container {
+        flex: 1;
+        min-height: 0;
+    }
+
+    body:not(.render-mode) .item-summary {
+        flex: none;
+        max-height: 25%;
+        overflow-y: auto;
+    }
+}
+
 @media (max-width: 1000px) {
     .workspace {
         grid-template-columns: minmax(0, 1fr);
@@ -991,6 +1077,7 @@ input[type="radio"], input[type="checkbox"] {
 
     .topbar {
         gap: 10px;
+        flex-wrap: wrap;
     }
 
     .brand {
@@ -999,22 +1086,21 @@ input[type="radio"], input[type="checkbox"] {
 
     .header-actions {
         gap: 6px;
+        margin-left: auto;
     }
 
     .source-link {
-        display: none;
+        padding: 0 10px;
+        font-size: 11px;
+    }
+
+    .view-link {
+        font-size: 10px;
     }
 
     .primary-button {
         padding: 0 11px;
         font-size: 11px;
-    }
-
-    .page-intro {
-        flex-direction: column;
-        align-items: start;
-        gap: 14px;
-        padding: 26px 0 24px;
     }
 
     .map-panel {
@@ -1085,9 +1171,10 @@ body.render-mode {
 
 .render-mode .workspace {
     display: block;
+    margin-top: 0;
 }
 
-.render-mode .topbar, .render-mode .page-intro, .render-mode .sidebar,
+.render-mode .topbar, .render-mode .sidebar,
 .render-mode .sidebar-overlay, .render-mode .map-toolbar, .render-mode .item-summary,
 .render-mode .site-footer, .render-mode .data-loaded-indicator, .render-mode .data-error-indicator {
     display: none;
@@ -1108,5 +1195,6 @@ body.render-mode {
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         transition: none !important;
+        animation: none !important;
     }
 }
