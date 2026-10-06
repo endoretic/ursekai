@@ -16,6 +16,7 @@ TABLES = (
     "mysekaiMaterials", "mysekaiItems", "mysekaiFixtures",
     "mysekaiFixturePlants", "mysekaiSiteHarvestFixtures", "materials",
 )
+HARVEST_MATERIAL_IDS = set(range(174, 200)) | {201}
 
 
 def fetch(url):
@@ -86,6 +87,7 @@ def download_icons(catalog, material_ids):
         for category, items in catalog.items()
         for key, item in items.items()
         if category != "material" or int(key) in material_ids
+        if not item["icon"].startswith(("item_memoria_", "item_birthday_flower_"))
     }
     pending = [item for icon, item in icons.items() if not (ROOT / "icon/Texture2D" / icon).is_file()]
 
@@ -113,7 +115,7 @@ def download_icons(catalog, material_ids):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ref", default="main", help="JP master-data branch or commit (default: main)")
-    parser.add_argument("--download-icons", action="store_true", help="Download missing PNGs; excluded from Git")
+    parser.add_argument("--download-icons", action="store_true", help="Download missing harvest PNGs")
     parser.add_argument("--material-id", type=int, action="append", default=[],
                         help="Also download this ordinary material reward (repeatable)")
     args = parser.parse_args()
@@ -151,7 +153,7 @@ def main():
         unknown_ids = set(args.material_id) - {int(key) for key in catalog["material"]}
         if unknown_ids:
             raise ValueError(f"Unknown ordinary material IDs: {sorted(unknown_ids)}")
-        download_icons(catalog, set(args.material_id))
+        download_icons(catalog, HARVEST_MATERIAL_IDS | set(args.material_id))
 
 
 if __name__ == "__main__":

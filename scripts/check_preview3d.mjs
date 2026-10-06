@@ -2,6 +2,14 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { parseMapData } from '../js/dataParser.js';
 import { readCaptureWeather } from '../js/preview3dWeather.js';
+import { createToneHarvest } from '../js/preview3dHarvest.js';
+import { Box3 } from '../vendor/three/build/three.module.js';
+
+const tone = createToneHarvest();
+const toneBounds = new Box3().setFromObject(tone);
+assert.equal(tone.children.length, 2);
+assert.ok(toneBounds.max.y > 0.3 && toneBounds.min.y >= 0);
+assert.ok(tone.children.every(mesh => mesh.material.transparent && !mesh.material.depthWrite));
 
 // Local exported assets are deliberately ignored by Git. Run after exporting them.
 const root = new URL('../assets/3d/', import.meta.url);

@@ -81,4 +81,6 @@ emitters, precise timings, distortion/soft-particle shaders, bloom/color grading
 ground reflections, planet/UFO objects and underwater fish are not reproduced.
 Thunder uses one gentle light pulse, without audio. There is no snow accumulation
 or physical weather simulation. Particle-only harvest fixtures still report a
-missing model. Harvest heights project onto the terrain; trees use the standing state.
+missing model but keep their drop labels. Tone #7001 uses a small cyan glow ring
+in place of its Unity particle system. Harvest heights project onto the terrain;
+trees use the standing state.
