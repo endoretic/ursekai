@@ -22,6 +22,7 @@ const rim = new THREE.RingGeometry(0.96, 1.25, 64);
 export function createToneHarvest() {
     const group = new THREE.Group();
     group.name = 'tone-glow';
+    group.scale.set(2 / 3, 1, 2 / 3);
     group.add(new THREE.Mesh(wall, glow));
     const ground = new THREE.Mesh(rim, halo);
     ground.rotation.x = -Math.PI / 2;

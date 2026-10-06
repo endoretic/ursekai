@@ -9,7 +9,7 @@ import { restoreMaterials, waterTime } from './preview3dMaterials.js';
 import { readCaptureWeather } from './preview3dWeather.js';
 import { createAtmosphere } from './preview3dAtmosphere.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { createToneHarvest } from './preview3dHarvest.js';
+import { createToneHarvest } from './preview3dHarvest.js?v=20261006.14';
 
 const ASSET_ROOT = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
     ? './assets/3d/' : 'https://ursekai-renderer.endoretic.cc/assets/3d/';
